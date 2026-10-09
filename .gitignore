@@ -1,0 +1,17 @@
+**/node_modules/
+**/.expo/
+**/dist/
+**/build/
+**/.env
+**/.env.local
+**/.env.*.local
+**/coverage/
+mobile/android/
+mobile/ios/
+**/.gradle/
+*.log
+*.tsbuildinfo
+.DS_Store
+*.keystore
+keystore.properties
+**/.cxx/

@@ -1,0 +1,18 @@
+{
+  "cli": { "version": ">= 15.0.0" },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "env": { "CASHWEFT_SMS_READER": "1" },
+      "android": { "buildType": "apk" }
+    },
+    "permission-free": {
+      "distribution": "internal",
+      "env": { "CASHWEFT_SMS_READER": "0" },
+      "android": { "buildType": "apk" }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  }
+}

@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: cashweft-backup-api
+    runtime: node
+    region: singapore
+    plan: free
+    autoDeployTrigger: off
+    rootDir: api
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22.21.1
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cashweft-backups
+          property: connectionString
+
+databases:
+  - name: cashweft-backups
+    region: singapore
+    plan: 0.1c-256mb
+    databaseName: cashweft
+    ipAllowList: []

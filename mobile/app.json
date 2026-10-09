@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "Cashweft",
+    "slug": "cashweft",
+    "scheme": "cashweft",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icons/icon.png",
+    "userInterfaceStyle": "automatic",
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.cashweft.mobile"
+    },
+    "android": {
+      "package": "app.cashweft.mobile",
+      "permissions": [
+        "android.permission.READ_SMS"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#0F5132",
+        "foregroundImage": "./assets/icons/adaptive-icon-foreground.png",
+        "backgroundImage": "./assets/icons/adaptive-icon-background.png",
+        "monochromeImage": "./assets/icons/monochrome-icon.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "splash": {
+      "image": "./assets/splash/splash-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F5132"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-secure-store",
+      "expo-font",
+      "expo-status-bar"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b4f0e637-267f-4e82-9230-6bbbdd527a93"
+      }
+    },
+    "owner": "deepon"
+  }
+}
