@@ -14,7 +14,7 @@ The installable package is a signed release build. It embeds the Hermes bytecode
 
 | | |
 | --- | --- |
-| File | [release/cashweft-1.0.0.apk](release/cashweft-1.0.0.apk) |
+| File | [release/cashweft-1.0.1.apk](release/cashweft-1.0.1.apk) |
 | Package | `app.cashweft.mobile` |
 | Label | Cashweft |
 | Signature | Local test certificate `CN=Cashweft Local Test`. This is not a Play Store upload key. |
@@ -29,9 +29,35 @@ Install it on an ARM phone (`armeabi-v7a` or `arm64-v8a`). It does not install o
 | Paste a message | Yes | Yes | Yes |
 | Read allowlisted SMS | SMS build only | No | No |
 | Cash Bridge, transfer suggestions, Ask Cashweft | Yes | Yes | Yes |
+| Money Threads and True Spend | Yes | Yes | Yes |
 | Encrypted backup | Yes | Yes | No |
 
 Institution names in the parser are not verified live integrations. See [docs/PAKISTAN_PARSER.md](docs/PAKISTAN_PARSER.md).
+
+## Money Threads
+
+Cashweft now understands the difference between money you spent and money you simply moved.
+
+HBL → JazzCash  
+Self-transfer, not spending
+
+HBL → Cash  
+Cash conversion, not spending
+
+Ali → HBL  
+Possible repayment of money lent
+
+Committee contributions → payout  
+Tracked as a connected money thread
+
+Purchase → later credit  
+Possible refund
+
+These checks run on the phone from the ledger you already have. Home keeps the normal total. True Spend is a separate figure that leaves out connections you confirm. You can undo a connection.
+
+Ordinary Cashweft works with no model. Version 1.0.1 does not download one, and it does not send transaction text, amounts, or names to Hugging Face or any other AI service. The published OpenJev 0.8B weights are 1,706,036,760 bytes of bfloat16. They are not in the APK, they were not quantized, and there is no measured phone download size. Details are in [docs/MODEL_PROVENANCE.md](docs/MODEL_PROVENANCE.md) and [docs/MONEY_THREADS.md](docs/MONEY_THREADS.md).
+
+The Android package installs on ARM phones (`armeabi-v7a` or `arm64-v8a`). Minimum Android version is taken from the release APK and recorded in [release/README.md](release/README.md).
 
 ## Repository
 
@@ -107,6 +133,8 @@ npm run typecheck
 - [Play SMS policy](docs/GOOGLE_PLAY_SMS_POLICY.md)
 - [Test report](docs/TEST_REPORT.md)
 - [Limitations](docs/LIMITATIONS.md)
+- [Money Threads](docs/MONEY_THREADS.md)
+- [Model provenance](docs/MODEL_PROVENANCE.md)
 
 ## License
 

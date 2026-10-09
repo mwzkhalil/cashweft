@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { CASH_ACCOUNT_ID, DEFAULT_PREFERENCES, DEFAULT_SENDERS, LEGACY_CATEGORY_MAP, SYSTEM_CATEGORIES } from './model';
-import type { Account, Budget, CashAdjustment, Category, MerchantCorrection, Preferences, SenderRule, Transaction, TransferLink } from './model';
-import { migrateSnapshot } from './snapshot';
+import type { Account, Budget, CashAdjustment, Category, MerchantCorrection, MoneyThread, Preferences, SenderRule, ThreadPrior, Transaction, TransferLink } from './model';
+import { migratePriors, migrateSnapshot, migrateThreads } from './snapshot';
 import type { Snapshot } from './snapshot';
 import { DATABASE_FILE, LEGACY_DATABASE_FILE, shouldCopyLegacyDatabase } from './identity';
 
@@ -404,11 +404,40 @@ export async function categoryNames(): Promise<string[]> {
   return [...SYSTEM_CATEGORIES, ...custom.filter(name => !SYSTEM_CATEGORIES.includes(name as typeof SYSTEM_CATEGORIES[number]))];
 }
 
+async function readMeta(key: string): Promise<string | null> {
+  const row = await (await getDatabase()).getFirstAsync<{ value: string }>('SELECT value FROM metadata WHERE key=?', key);
+  return row?.value ?? null;
+}
+
+async function writeMeta(key: string, value: string): Promise<void> {
+  await (await getDatabase()).runAsync('INSERT INTO metadata (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', key, value);
+}
+
+export async function loadMoneyThreads(): Promise<MoneyThread[]> {
+  const raw = await readMeta('moneyThreads');
+  if (!raw) return [];
+  try { return migrateThreads(JSON.parse(raw)); } catch { return []; }
+}
+
+export async function saveMoneyThreads(threads: MoneyThread[]): Promise<void> {
+  await writeMeta('moneyThreads', JSON.stringify(threads));
+}
+
+export async function loadThreadPriors(): Promise<ThreadPrior[]> {
+  const raw = await readMeta('threadPriors');
+  if (!raw) return [];
+  try { return migratePriors(JSON.parse(raw)); } catch { return []; }
+}
+
+export async function saveThreadPriors(priors: ThreadPrior[]): Promise<void> {
+  await writeMeta('threadPriors', JSON.stringify(priors));
+}
+
 export async function exportSnapshot(): Promise<Snapshot> {
-  const [transactions, budgets, senders, preferences, accounts, links, corrections, adjustments, categories] = await Promise.all([
-    listTransactions(), listBudgets(), listSenders(), loadPreferences(), listAccounts(), listLinks(), listCorrections(), listAdjustments(), listCustomCategories(),
+  const [transactions, budgets, senders, preferences, accounts, links, corrections, adjustments, categories, threads, threadPriors] = await Promise.all([
+    listTransactions(), listBudgets(), listSenders(), loadPreferences(), listAccounts(), listLinks(), listCorrections(), listAdjustments(), listCustomCategories(), loadMoneyThreads(), loadThreadPriors(),
   ]);
-  return { schema: 2, transactions, budgets, senders, preferences, accounts, links, corrections, adjustments, categories, exportedAt: Date.now() };
+  return { schema: 2, transactions, budgets, senders, preferences, accounts, links, corrections, adjustments, categories, threads, threadPriors, exportedAt: Date.now() };
 }
 
 export async function restoreSnapshot(input: unknown): Promise<void> {
@@ -425,6 +454,8 @@ export async function restoreSnapshot(input: unknown): Promise<void> {
     for (const c of snapshot.corrections) await tx.runAsync('INSERT INTO merchant_corrections VALUES (?,?,?,?)', c.merchantKey, c.category, c.hits, c.updatedAt);
     for (const adj of snapshot.adjustments) await tx.runAsync('INSERT INTO cash_adjustments VALUES (?,?,?,?)', adj.id, adj.amountMinor, adj.note, adj.occurredAt);
     for (const name of snapshot.categories) await tx.runAsync('INSERT INTO custom_categories VALUES (?)', name);
+    await tx.runAsync('INSERT INTO metadata (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', 'moneyThreads', JSON.stringify(snapshot.threads));
+    await tx.runAsync('INSERT INTO metadata (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', 'threadPriors', JSON.stringify(snapshot.threadPriors));
     const count = await tx.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM transactions');
     if ((count?.n ?? 0) !== snapshot.transactions.length) throw new Error('Restore did not keep every transaction.');
   });

@@ -39,6 +39,7 @@ export default function You() {
     <View style={{ marginTop: 22 }}><SectionTitle>Ledger</SectionTitle></View>
     <Menu title="Accounts" detail="Banks, wallets, and cash you own" icon="you" onPress={() => router.push('/accounts')} />
     <Menu title="Cash Bridge" detail="Estimated cash, not a bank balance" icon="budgets" onPress={() => router.push('/cash')} />
+    <Menu title="Money Threads" detail="See where money moved, and what was spent" icon="edit" onPress={() => router.push('/threads')} />
     <Menu title="Paste a message" detail="Works without SMS permission" icon="sms" onPress={() => router.push('/import')} />
     <Menu title="Encrypted backup" detail="Optional ciphertext on your API" icon="cloud" onPress={() => router.push('/backup')} />
     <Menu title="Export and import" detail="A JSON copy of this ledger" icon="share" onPress={() => router.push('/data')} />

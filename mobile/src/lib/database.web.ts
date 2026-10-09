@@ -1,5 +1,5 @@
 import { CASH_ACCOUNT_ID, DEFAULT_PREFERENCES, DEFAULT_SENDERS, SYSTEM_CATEGORIES } from './model';
-import type { Account, Budget, CashAdjustment, Category, MerchantCorrection, Preferences, SenderRule, Transaction, TransferLink } from './model';
+import type { Account, Budget, CashAdjustment, Category, MerchantCorrection, MoneyThread, Preferences, SenderRule, ThreadPrior, Transaction, TransferLink } from './model';
 import { migrateSnapshot } from './snapshot';
 import type { Snapshot } from './snapshot';
 import { BROWSER_LEDGER_KEY, LEGACY_BROWSER_LEDGER_KEY, chooseStoredValue } from './identity';
@@ -7,7 +7,7 @@ import { BROWSER_LEDGER_KEY, LEGACY_BROWSER_LEDGER_KEY, chooseStoredValue } from
 function empty(): Snapshot {
   return {
     schema: 2, transactions: [], budgets: [], senders: DEFAULT_SENDERS, preferences: DEFAULT_PREFERENCES,
-    accounts: [], links: [], corrections: [], adjustments: [], categories: [], exportedAt: 0,
+    accounts: [], links: [], corrections: [], adjustments: [], categories: [], threads: [], threadPriors: [], exportedAt: 0,
   };
 }
 
@@ -147,6 +147,10 @@ export async function categoryNames(): Promise<string[]> {
   const custom = await listCustomCategories();
   return [...SYSTEM_CATEGORIES, ...custom.filter(name => !SYSTEM_CATEGORIES.includes(name as typeof SYSTEM_CATEGORIES[number]))];
 }
+export async function loadMoneyThreads(): Promise<MoneyThread[]> { return read().threads; }
+export async function saveMoneyThreads(threads: MoneyThread[]): Promise<void> { const snapshot = read(); snapshot.threads = threads; write(snapshot); }
+export async function loadThreadPriors(): Promise<ThreadPrior[]> { return read().threadPriors; }
+export async function saveThreadPriors(priors: ThreadPrior[]): Promise<void> { const snapshot = read(); snapshot.threadPriors = priors; write(snapshot); }
 export async function exportSnapshot(): Promise<Snapshot> { return { ...read(), exportedAt: Date.now() }; }
 export async function restoreSnapshot(input: unknown): Promise<void> {
   const snapshot = migrateSnapshot(input);

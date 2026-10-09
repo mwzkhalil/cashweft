@@ -4,12 +4,14 @@ import { randomUUID } from 'expo-crypto';
 import {
   addTransaction, addTransactions, categoryNames, editTransaction, exportSnapshot, getDatabase, listAccounts,
   listAdjustments, listBudgets, listCorrections, listLinks, listSenders, listTransactions,
-  loadPreferences, relabelCurrency, removeAccount, removeBudget, removeLink, removeSender, restoreSnapshot,
-  saveAccount, saveAdjustment, saveBudget, saveCorrection, saveCustomCategory, saveLink, savePreference, saveSender, setTransactionType,
+  loadMoneyThreads, loadPreferences, loadThreadPriors, relabelCurrency, removeAccount, removeBudget, removeLink, removeSender, restoreSnapshot,
+  saveAccount, saveAdjustment, saveBudget, saveCorrection, saveCustomCategory, saveLink, saveMoneyThreads, savePreference, saveSender, saveThreadPriors, setTransactionType,
 } from '@/lib/database';
 import type { Snapshot } from '@/lib/database';
 import { CASH_ACCOUNT_ID, DEFAULT_PREFERENCES, SYSTEM_CATEGORIES } from '@/lib/model';
-import type { Account, Budget, CashAdjustment, Category, Direction, MerchantCorrection, Preferences, SenderRule, Transaction, TransactionStatus, TransactionType, TransferLink } from '@/lib/model';
+import type { Account, Budget, CashAdjustment, Category, Direction, MerchantCorrection, MoneyThread, Preferences, SenderRule, ThreadPrior, Transaction, TransactionStatus, TransactionType, TransferLink } from '@/lib/model';
+import { bumpPrior, nextType, priorKey, rewindPrior } from '@/finance/threads/decide';
+import type { ReviewCard } from '@/finance/threads/decide';
 import { textToMinor } from '@/lib/money';
 import { readBankSms, requestSmsPermission } from '@/lib/sms';
 import { categoryFromMemory, merchantKey, rememberCorrection } from '@/finance/accounting/corrections';
@@ -27,6 +29,8 @@ interface LedgerContextValue {
   corrections: MerchantCorrection[];
   adjustments: CashAdjustment[];
   categories: string[];
+  threads: MoneyThread[];
+  priors: ThreadPrior[];
   refresh: () => Promise<void>;
   scan: (full?: boolean) => Promise<number>;
   enableSms: () => Promise<boolean>;
@@ -44,6 +48,9 @@ interface LedgerContextValue {
   unlink: (id: string) => Promise<void>;
   addAdjustment: (amountMinor: number, note: string) => Promise<void>;
   addCategory: (name: string) => Promise<void>;
+  confirmThread: (card: ReviewCard, action: 'connect' | 'partial' | 'keep-one') => Promise<number>;
+  rejectThread: (card: ReviewCard) => Promise<void>;
+  undoThread: (id: string) => Promise<void>;
   markLegacyAsPkr: () => Promise<void>;
   keepLegacyInr: () => Promise<void>;
   restore: (snapshot: Snapshot) => Promise<void>;
@@ -69,11 +76,13 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
   const [corrections, setCorrections] = useState<MerchantCorrection[]>([]);
   const [adjustments, setAdjustments] = useState<CashAdjustment[]>([]);
   const [categories, setCategories] = useState<string[]>([...SYSTEM_CATEGORIES]);
+  const [threads, setThreads] = useState<MoneyThread[]>([]);
+  const [priors, setPriors] = useState<ThreadPrior[]>([]);
   const scanBusyRef = useRef(false);
 
   const refresh = useCallback(async () => {
-    const [nextTransactions, nextBudgets, nextSenders, nextPreferences, nextAccounts, nextLinks, nextCorrections, nextAdjustments, nextCategories] = await Promise.all([
-      listTransactions(), listBudgets(), listSenders(), loadPreferences(), listAccounts(), listLinks(), listCorrections(), listAdjustments(), categoryNames(),
+    const [nextTransactions, nextBudgets, nextSenders, nextPreferences, nextAccounts, nextLinks, nextCorrections, nextAdjustments, nextCategories, nextThreads, nextPriors] = await Promise.all([
+      listTransactions(), listBudgets(), listSenders(), loadPreferences(), listAccounts(), listLinks(), listCorrections(), listAdjustments(), categoryNames(), loadMoneyThreads(), loadThreadPriors(),
     ]);
     setTransactions(nextTransactions);
     setBudgets(nextBudgets);
@@ -84,6 +93,8 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
     setCorrections(nextCorrections);
     setAdjustments(nextAdjustments);
     setCategories(nextCategories);
+    setThreads(nextThreads);
+    setPriors(nextPriors);
   }, []);
 
   useEffect(() => {
@@ -167,7 +178,7 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
   }, [refresh, accounts]);
 
   const value = useMemo<LedgerContextValue>(() => ({
-    ready, busy, error, transactions, budgets, senders, preferences, accounts, links, corrections, adjustments, categories,
+    ready, busy, error, transactions, budgets, senders, preferences, accounts, links, corrections, adjustments, categories, threads, priors,
     refresh, scan, enableSms, addManual, setTransaction, setBudget: changeBudget,
     removeBudget: async category => { await removeBudget(category); await refresh(); },
     setSender: async sender => { await saveSender(sender); await refresh(); },
@@ -201,11 +212,64 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
     },
     addAdjustment: async (amountMinor, note) => { await saveAdjustment({ id: randomUUID(), amountMinor, note, occurredAt: Date.now() }); await refresh(); },
     addCategory: async name => { await saveCustomCategory(name); await refresh(); },
+    confirmThread: async (card, action) => {
+      const rows = card.transactionIds.map(id => transactions.find(item => item.id === id)).filter((item): item is Transaction => Boolean(item));
+      if (rows.length !== card.transactionIds.length) throw new Error('Those entries are no longer in the ledger.');
+      const thread: MoneyThread = {
+        id: card.id, kind: card.kind, transactionIds: card.transactionIds, status: 'confirmed', partial: action === 'partial',
+        priorTypes: Object.fromEntries(rows.map(row => [row.id, row.transactionType])),
+        priorStatus: Object.fromEntries(rows.map(row => [row.id, row.status])),
+        createdAt: Date.now(),
+      };
+      if (action !== 'partial') {
+        const later = card.transactionIds[card.transactionIds.length - 1];
+        for (const row of rows) {
+          if (card.kind === 'DUPLICATE' && row.id === later) await editTransaction(row.id, { merchant: row.merchant, category: row.category, status: 'ignored', transactionType: row.transactionType });
+          else {
+            const next = nextType(card.kind, row);
+            if (next !== row.transactionType) await setTransactionType(row.id, next);
+          }
+        }
+      }
+      await saveMoneyThreads([...threads.filter(item => item.id !== thread.id), thread]);
+      await saveThreadPriors(bumpPrior(priors, priorKey(card.kind, rows.map(row => row.merchant)), true));
+      await refresh();
+      return action === 'partial' ? 0 : card.impactMinor;
+    },
+    rejectThread: async card => {
+      const rows = card.transactionIds.map(id => transactions.find(item => item.id === id)).filter((item): item is Transaction => Boolean(item));
+      const thread: MoneyThread = {
+        id: card.id, kind: card.kind, transactionIds: card.transactionIds, status: 'rejected', partial: false,
+        priorTypes: Object.fromEntries(rows.map(row => [row.id, row.transactionType])),
+        priorStatus: Object.fromEntries(rows.map(row => [row.id, row.status])),
+        createdAt: Date.now(),
+      };
+      await saveMoneyThreads([...threads.filter(item => item.id !== thread.id), thread]);
+      await saveThreadPriors(bumpPrior(priors, priorKey(card.kind, rows.map(row => row.merchant)), false));
+      await refresh();
+    },
+    undoThread: async id => {
+      const thread = threads.find(item => item.id === id);
+      if (!thread || thread.status !== 'confirmed') return;
+      for (const entryId of thread.transactionIds) {
+        const row = transactions.find(item => item.id === entryId);
+        if (!row) continue;
+        await editTransaction(entryId, {
+          merchant: row.merchant, category: row.category,
+          status: thread.priorStatus[entryId] ?? row.status,
+          transactionType: thread.priorTypes[entryId] ?? row.transactionType,
+        });
+      }
+      const names = thread.transactionIds.map(entryId => transactions.find(item => item.id === entryId)?.merchant ?? '');
+      await saveMoneyThreads(threads.filter(item => item.id !== id));
+      await saveThreadPriors(rewindPrior(priors, priorKey(thread.kind, names), true));
+      await refresh();
+    },
     markLegacyAsPkr: async () => { await relabelCurrency('PKR'); await savePreference('legacyCurrency', 'mark-pkr'); await refresh(); },
     keepLegacyInr: async () => { await savePreference('legacyCurrency', 'keep-inr'); await refresh(); },
     restore: async snapshot => { await restoreSnapshot(snapshot); await refresh(); },
     clearError: () => setError(null),
-  }), [ready, busy, error, transactions, budgets, senders, preferences, accounts, links, corrections, adjustments, categories, refresh, scan, enableSms, addManual, setTransaction, changeBudget, changePreference]);
+  }), [ready, busy, error, transactions, budgets, senders, preferences, accounts, links, corrections, adjustments, categories, threads, priors, refresh, scan, enableSms, addManual, setTransaction, changeBudget, changePreference]);
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;
 }

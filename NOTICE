@@ -1,0 +1,18 @@
+Cashweft
+Copyright (c) 2026 mwzkhalil
+
+This project is licensed under the MIT License. See LICENSE.
+
+Cashweft 1.0.1 does not redistribute model weights.
+
+The optional relationship model identified for a later phone pack is
+AlexWortega/openjev, checkpoint qwen3.5-0.8b-nli-v2s-long,
+revision a20448012c213128955ca0c693e7c943865cab77.
+That repository's model card is MIT.
+The Qwen3.5 0.8B student architecture is published by Qwen under Apache-2.0:
+https://huggingface.co/Qwen/Qwen3.5-0.8B
+https://www.apache.org/licenses/LICENSE-2.0
+
+If a future build ships those weights, include the OpenJev MIT notice,
+the Qwen Apache-2.0 LICENSE, and any NOTICE file shipped with the Qwen
+checkpoint. See docs/MODEL_PROVENANCE.md and THIRD_PARTY_NOTICES.md.

@@ -133,3 +133,27 @@ export const DEFAULT_PREFERENCES: Preferences = {
 };
 
 export const CASH_ACCOUNT_ID = 'cash-wallet';
+
+export const THREAD_KINDS = [
+  'SELF_TRANSFER', 'CASH_CONVERSION', 'REFUND', 'LOAN_OUT', 'LOAN_REPAYMENT',
+  'COMMITTEE_CONTRIBUTION', 'COMMITTEE_PAYOUT', 'RECURRING_COMMITMENT', 'DUPLICATE',
+] as const;
+
+export type ThreadKind = (typeof THREAD_KINDS)[number];
+
+export interface MoneyThread {
+  id: string;
+  kind: ThreadKind;
+  transactionIds: string[];
+  status: 'confirmed' | 'rejected';
+  partial: boolean;
+  priorTypes: Partial<Record<string, TransactionType>>;
+  priorStatus: Partial<Record<string, TransactionStatus>>;
+  createdAt: number;
+}
+
+export interface ThreadPrior {
+  key: string;
+  confirm: number;
+  reject: number;
+}

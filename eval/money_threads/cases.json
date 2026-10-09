@@ -1,0 +1,61 @@
+[
+  {"id": "raast-own", "expect": ["SELF_TRANSFER"], "accounts": [{"id": "hbl", "own": true}, {"id": "jazz", "own": true}], "rows": [
+    {"id": "a", "merchant": "HBL", "accountId": "hbl", "amount": 10000, "dir": "debit", "at": 0, "rail": "Raast"},
+    {"id": "b", "merchant": "JazzCash", "accountId": "jazz", "amount": 10000, "dir": "credit", "type": "income", "at": 120000}
+  ]},
+  {"id": "ibft-own", "expect": ["SELF_TRANSFER"], "accounts": [{"id": "hbl", "own": true}, {"id": "ubl", "own": true}], "rows": [
+    {"id": "a", "merchant": "HBL", "accountId": "hbl", "amount": 25000, "dir": "debit", "at": 0, "reference": "IBFT9"},
+    {"id": "b", "merchant": "UBL", "accountId": "ubl", "amount": 25000, "dir": "credit", "type": "income", "at": 600000, "reference": "IBFT9"}
+  ]},
+  {"id": "easypaisa-own", "expect": ["SELF_TRANSFER"], "accounts": [{"id": "mcb", "own": true}, {"id": "easy", "own": true}], "rows": [
+    {"id": "a", "merchant": "MCB", "accountId": "mcb", "amount": 4000, "dir": "debit", "at": 0},
+    {"id": "b", "merchant": "Easypaisa", "accountId": "easy", "amount": 4000, "dir": "credit", "type": "income", "at": 180000}
+  ]},
+  {"id": "stranger-credit", "expect": [], "accounts": [{"id": "hbl", "own": true}], "rows": [
+    {"id": "a", "merchant": "HBL", "accountId": "hbl", "amount": 10000, "dir": "debit", "at": 0},
+    {"id": "b", "merchant": "Ali shop", "amount": 10000, "dir": "credit", "type": "income", "at": 7200000}
+  ]},
+  {"id": "amount-mismatch", "expect": [], "accounts": [{"id": "hbl", "own": true}, {"id": "jazz", "own": true}], "rows": [
+    {"id": "a", "merchant": "HBL", "accountId": "hbl", "amount": 10000, "dir": "debit", "at": 0},
+    {"id": "b", "merchant": "JazzCash", "accountId": "jazz", "amount": 9900, "dir": "credit", "type": "income", "at": 120000}
+  ]},
+  {"id": "daraz-refund", "expect": ["REFUND"], "rows": [
+    {"id": "a", "merchant": "Daraz", "amount": 4500, "dir": "debit", "at": 0},
+    {"id": "b", "merchant": "Daraz", "amount": 4500, "dir": "credit", "type": "income", "at": 432000000}
+  ]},
+  {"id": "loan-roman", "expect": ["LOAN_OUT", "LOAN_REPAYMENT"], "rows": [
+    {"id": "a", "merchant": "Ali", "body": "Ali ko 8000 udhar diye", "amount": 8000, "dir": "debit", "at": 0},
+    {"id": "b", "merchant": "Ali", "body": "wapas", "amount": 8000, "dir": "credit", "type": "income", "at": 1814400000}
+  ]},
+  {"id": "committee", "expect": ["COMMITTEE_CONTRIBUTION", "COMMITTEE_PAYOUT"], "rows": [
+    {"id": "c1", "merchant": "Office committee", "body": "committee", "amount": 10000, "dir": "debit", "at": 0},
+    {"id": "c2", "merchant": "Office committee", "body": "committee", "amount": 10000, "dir": "debit", "at": 2592000000},
+    {"id": "c3", "merchant": "Office committee", "body": "bisi", "amount": 10000, "dir": "debit", "at": 5184000000},
+    {"id": "pay", "merchant": "Office committee", "amount": 120000, "dir": "credit", "type": "income", "at": 7776000000}
+  ]},
+  {"id": "atm", "expect": ["CASH_CONVERSION"], "rows": [
+    {"id": "a", "merchant": "HBL ATM", "amount": 20000, "dir": "debit", "type": "cash_withdrawal", "at": 0}
+  ]},
+  {"id": "duplicate", "expect": ["DUPLICATE"], "rows": [
+    {"id": "a", "merchant": "Imtiaz", "amount": 2950, "dir": "debit", "at": 0, "hash": "one"},
+    {"id": "b", "merchant": "Imtiaz", "amount": 2950, "dir": "debit", "at": 120000, "hash": "two"}
+  ]},
+  {"id": "two-real-shops", "expect": [], "rows": [
+    {"id": "a", "merchant": "Imtiaz", "amount": 2950, "dir": "debit", "at": 0, "hash": "one"},
+    {"id": "b", "merchant": "Imtiaz", "amount": 2950, "dir": "debit", "at": 172800000, "hash": "two"}
+  ]},
+  {"id": "salary", "expect": [], "rows": [
+    {"id": "a", "merchant": "Employer", "amount": 85000, "dir": "credit", "type": "income", "at": 0}
+  ]},
+  {"id": "zakat", "expect": [], "rows": [
+    {"id": "a", "merchant": "Masjid", "body": "zakat", "amount": 2000, "dir": "debit", "at": 0}
+  ]},
+  {"id": "utility", "expect": ["RECURRING_COMMITMENT"], "rows": [
+    {"id": "u1", "merchant": "K-Electric", "amount": 6400, "dir": "debit", "category": "Utilities", "at": 0},
+    {"id": "u2", "merchant": "K-Electric", "amount": 6500, "dir": "debit", "category": "Utilities", "at": 2592000000},
+    {"id": "u3", "merchant": "K-Electric", "amount": 6300, "dir": "debit", "category": "Utilities", "at": 5184000000}
+  ]},
+  {"id": "family", "expect": [], "rows": [
+    {"id": "a", "merchant": "Ammi", "body": "ghar ke liye", "amount": 5000, "dir": "debit", "at": 0}
+  ]}
+]

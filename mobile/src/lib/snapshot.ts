@@ -1,9 +1,9 @@
 import {
-  DEFAULT_PREFERENCES, LEGACY_CATEGORY_MAP, TRANSACTION_TYPES,
+  DEFAULT_PREFERENCES, LEGACY_CATEGORY_MAP, THREAD_KINDS, TRANSACTION_TYPES,
 } from './model';
 import type {
-  Account, Budget, CashAdjustment, CurrencyCode, Direction, MerchantCorrection,
-  Preferences, SenderRule, Transaction, TransactionStatus, TransactionType, TransferLink,
+  Account, Budget, CashAdjustment, CurrencyCode, Direction, MerchantCorrection, MoneyThread,
+  Preferences, SenderRule, ThreadPrior, Transaction, TransactionStatus, TransactionType, TransferLink,
 } from './model';
 
 export interface Snapshot {
@@ -17,6 +17,8 @@ export interface Snapshot {
   corrections: MerchantCorrection[];
   adjustments: CashAdjustment[];
   categories: string[];
+  threads: MoneyThread[];
+  threadPriors: ThreadPrior[];
   exportedAt: number;
 }
 
@@ -106,6 +108,39 @@ function migratePreferences(value: unknown, legacy: boolean, hadTransactions: bo
   return next;
 }
 
+const KINDS = new Set<string>(THREAD_KINDS);
+
+export function migrateThreads(value: unknown): MoneyThread[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap(item => {
+    if (!item || typeof item !== 'object') return [];
+    const row = item as Partial<MoneyThread>;
+    if (typeof row.id !== 'string' || typeof row.kind !== 'string' || !KINDS.has(row.kind)) return [];
+    if (!Array.isArray(row.transactionIds) || row.transactionIds.some(id => typeof id !== 'string')) return [];
+    if (row.status !== 'confirmed' && row.status !== 'rejected') return [];
+    return [{
+      id: row.id,
+      kind: row.kind,
+      transactionIds: row.transactionIds,
+      status: row.status,
+      partial: row.partial === true,
+      priorTypes: row.priorTypes && typeof row.priorTypes === 'object' ? row.priorTypes : {},
+      priorStatus: row.priorStatus && typeof row.priorStatus === 'object' ? row.priorStatus : {},
+      createdAt: typeof row.createdAt === 'number' ? row.createdAt : 0,
+    }];
+  });
+}
+
+export function migratePriors(value: unknown): ThreadPrior[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap(item => {
+    if (!item || typeof item !== 'object') return [];
+    const row = item as Partial<ThreadPrior>;
+    if (typeof row.key !== 'string' || typeof row.confirm !== 'number' || typeof row.reject !== 'number') return [];
+    return [{ key: row.key, confirm: row.confirm, reject: row.reject }];
+  });
+}
+
 export function migrateSnapshot(input: unknown): Snapshot {
   const raw = asRecord(input, 'Backup');
   if (raw.schema !== 1 && raw.schema !== 2) throw new Error('This backup format is not supported.');
@@ -125,6 +160,8 @@ export function migrateSnapshot(input: unknown): Snapshot {
     corrections: Array.isArray(raw.corrections) ? raw.corrections as MerchantCorrection[] : [],
     adjustments: Array.isArray(raw.adjustments) ? raw.adjustments as CashAdjustment[] : [],
     categories: Array.isArray(raw.categories) ? raw.categories.filter((item): item is string => typeof item === 'string') : [],
+    threads: migrateThreads(raw.threads),
+    threadPriors: migratePriors(raw.threadPriors),
     exportedAt: typeof raw.exportedAt === 'number' ? raw.exportedAt : Date.now(),
   };
 }
