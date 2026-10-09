@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { migrateSnapshot } from '../src/lib/snapshot.ts';
 import { decodeRecoveryCode, displayRecoveryPrefix, formatRecoveryCode } from '../src/lib/recoveryCode.ts';
@@ -69,4 +70,13 @@ test('formats PKR without floating point grouping surprises', () => {
   assert.equal(formatMoney(1245050, 'PKR'), 'Rs. 12,450.50');
   assert.equal(formatMoney(12500000, 'PKR', 'southAsian'), 'Rs. 1,25,000');
   assert.equal(formatMoney(125000, 'INR'), '₹1,250');
+});
+
+test('transaction insert binds one value for every column', () => {
+  const source = readFileSync(new URL('../src/lib/database.ts', import.meta.url), 'utf8');
+  const statement = source.slice(source.indexOf('INSERT OR IGNORE INTO transactions'), source.indexOf('function txParams'));
+  const columns = statement.split('VALUES')[0].match(/\(([^)]+)\)/)[1].split(',').length;
+  const values = statement.split('VALUES')[1].match(/\(([^)]+)\)/)[1].split(',').length;
+  assert.equal(values, columns);
+  assert.equal(columns, 22);
 });

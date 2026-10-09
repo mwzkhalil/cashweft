@@ -15,7 +15,7 @@ export default function About() {
   const p = usePalette();
   return <Screen><ScreenHead title="About" back />
     <View style={{ alignItems: 'center', marginTop: 8 }}><BrandLockup size={72} /></View>
-    <Body style={{ marginTop: 16, textAlign: 'center' }}>Version 1.0.1</Body>
+    <Body style={{ marginTop: 16, textAlign: 'center' }}>Version 1.0.2</Body>
     <View style={{ marginTop: 22 }}><SectionTitle>How Cashweft works</SectionTitle></View>
     {principles.map(([title, detail]) => <View key={title} style={{ marginTop: 14 }}>
       <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 16, color: p.ink }}>{title}</Text>

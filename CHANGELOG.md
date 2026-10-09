@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-10
+
+### Fixed
+
+- Saving an entry. The ledger insert listed 22 columns and supplied 21 values, so a new expense was rejected.
+
 ## [1.0.1] - 2026-10-10
 
 ### Added
@@ -37,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   storage, using AES-GCM encryption and a recovery-code flow.
 - Downloadable Android APK release.
 
-[Unreleased]: https://github.com/mwzkhalil/cashweft/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/mwzkhalil/cashweft/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/mwzkhalil/cashweft/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/mwzkhalil/cashweft/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mwzkhalil/cashweft/releases/tag/v1.0.0

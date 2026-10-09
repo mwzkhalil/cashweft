@@ -14,7 +14,7 @@ The installable package is a signed release build. It embeds the Hermes bytecode
 
 | | |
 | --- | --- |
-| File | [release/cashweft-1.0.1.apk](release/cashweft-1.0.1.apk) |
+| File | [release/cashweft-1.0.2.apk](release/cashweft-1.0.2.apk) |
 | Package | `app.cashweft.mobile` |
 | Label | Cashweft |
 | Signature | Local test certificate `CN=Cashweft Local Test`. This is not a Play Store upload key. |

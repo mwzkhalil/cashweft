@@ -258,7 +258,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
 const INSERT_TX = `INSERT OR IGNORE INTO transactions
   (id,source_hash,sender,raw_body,occurred_at,merchant,amount_paise,amount_minor,currency,direction,transaction_type,category,status,account_last4,reference,confidence,provider_id,account_id,counterparty_account_id,rail,created_at,updated_at)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 function txParams(t: Transaction): (string | number | null)[] {
   return [t.id, t.sourceHash, t.sender, t.rawBody, t.occurredAt, t.merchant, t.amountMinor, t.amountMinor,

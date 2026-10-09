@@ -3,7 +3,7 @@
     "name": "Cashweft",
     "slug": "cashweft",
     "scheme": "cashweft",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icons/icon.png",
     "userInterfaceStyle": "automatic",
@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "app.cashweft.mobile",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "android.permission.READ_SMS"
       ],
