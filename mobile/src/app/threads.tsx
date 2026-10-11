@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Action, Body, Caption, Screen, ScreenHead, SectionTitle } from '@/ui/Kit';
+import { Action, Body, Caption, Screen, ScreenHead } from '@/ui/Kit';
 import { fonts, usePalette } from '@/ui/theme';
 import { useLedger } from '@/state/LedgerProvider';
 import { money } from '@/lib/format';
@@ -21,7 +21,6 @@ export default function Threads() {
   const p = usePalette();
   const { transactions, accounts, threads, priors, preferences, confirmThread, rejectThread, undoThread } = useLedger();
   const [section, setSection] = useState<(typeof sections)[number]>('Needs review');
-  const [offer, setOffer] = useState(true);
   const cards = moneySuggestions(transactions, accounts, threads, priors);
   const spend = trueSpend(transactions.filter(item => item.currency === 'PKR'), threads);
   const loans = loanPosition(transactions, threads);
@@ -56,13 +55,6 @@ export default function Threads() {
     {section === 'Needs review' && !cards.length ? <View style={{ marginTop: 18 }}><Body>Nothing needs your eyes.</Body></View> : null}
     {section !== 'Needs review' ? visible.map(thread => <Connected key={thread.id} thread={thread} transactions={transactions} grouping={preferences.grouping} onUndo={() => void undoThread(thread.id)} />) : null}
     {section !== 'Needs review' && !visible.length ? <View style={{ marginTop: 18 }}><Caption>Nothing connected here yet.</Caption></View> : null}
-    {offer ? <View style={{ marginTop: 28, padding: 16, borderRadius: 14, backgroundColor: p.bg, borderWidth: 1, borderColor: p.line }}>
-      <SectionTitle>Private Money Intelligence</SectionTitle>
-      <Body muted style={{ marginTop: 8 }}>Cashweft can download an optional on-device model later. It would run on this phone, and transaction text would not be uploaded. The phone-sized pack is not in this build, so these cards use Cashweft’s own checks. You can dismiss this.</Body>
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
-        <Action compact title="Not now" variant="secondary" onPress={() => setOffer(false)} />
-      </View>
-    </View> : null}
   </Screen>;
 }
 

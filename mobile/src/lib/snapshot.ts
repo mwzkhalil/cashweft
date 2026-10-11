@@ -2,8 +2,8 @@ import {
   DEFAULT_PREFERENCES, LEGACY_CATEGORY_MAP, THREAD_KINDS, TRANSACTION_TYPES,
 } from './model';
 import type {
-  Account, Budget, CashAdjustment, CurrencyCode, Direction, MerchantCorrection, MoneyThread,
-  Preferences, SenderRule, ThreadPrior, Transaction, TransactionStatus, TransactionType, TransferLink,
+  Account, Budget, CashAdjustment, CurrencyCode, Direction, HistoryJob, MerchantCorrection, MoneyThread,
+  Preferences, SenderHistory, SenderRule, ThreadPrior, Transaction, TransactionStatus, TransactionType, TransferLink,
 } from './model';
 
 export interface Snapshot {
@@ -19,6 +19,8 @@ export interface Snapshot {
   categories: string[];
   threads: MoneyThread[];
   threadPriors: ThreadPrior[];
+  senderHistories: SenderHistory[];
+  historyJob: HistoryJob | null;
   exportedAt: number;
 }
 
@@ -104,6 +106,8 @@ function migratePreferences(value: unknown, legacy: boolean, hadTransactions: bo
   const next = { ...DEFAULT_PREFERENCES, ...row, language: row.language === 'ur' ? 'ur' as const : 'en' as const };
   if (next.grouping !== 'southAsian') next.grouping = 'international';
   if (!['none', 'pending', 'keep-inr', 'mark-pkr'].includes(next.legacyCurrency)) next.legacyCurrency = 'none';
+  if (typeof next.historyPromptSeen !== 'boolean') next.historyPromptSeen = false;
+  if (next.historyRange !== '30d' && next.historyRange !== '90d' && next.historyRange !== '1y' && next.historyRange !== 'all') next.historyRange = '90d';
   if (legacy && hadTransactions && next.legacyCurrency === 'none') next.legacyCurrency = 'pending';
   return next;
 }
@@ -141,6 +145,42 @@ export function migratePriors(value: unknown): ThreadPrior[] {
   });
 }
 
+export function migrateSenderHistories(value: unknown): SenderHistory[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap(item => {
+    if (!item || typeof item !== 'object') return [];
+    const row = item as Partial<SenderHistory>;
+    if (typeof row.address !== 'string' || !row.address.trim()) return [];
+    return [{
+      address: row.address,
+      oldestImportedAt: typeof row.oldestImportedAt === 'number' ? row.oldestImportedAt : null,
+      latestImportedAt: typeof row.latestImportedAt === 'number' ? row.latestImportedAt : null,
+      historyComplete: row.historyComplete === true,
+      lastIncrementalScanAt: typeof row.lastIncrementalScanAt === 'number' ? row.lastIncrementalScanAt : null,
+    }];
+  });
+}
+
+export function migrateHistoryJob(value: unknown): HistoryJob | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Partial<HistoryJob>;
+  if (!Array.isArray(row.addresses) || row.addresses.some(item => typeof item !== 'string')) return null;
+  if (typeof row.since !== 'number' || typeof row.until !== 'number' || typeof row.senderIndex !== 'number') return null;
+  return {
+    addresses: row.addresses,
+    since: row.since,
+    until: row.until,
+    senderIndex: row.senderIndex,
+    cursorDate: typeof row.cursorDate === 'number' ? row.cursorDate : null,
+    cursorId: typeof row.cursorId === 'number' ? row.cursorId : null,
+    scanned: typeof row.scanned === 'number' ? row.scanned : 0,
+    added: typeof row.added === 'number' ? row.added : 0,
+    review: typeof row.review === 'number' ? row.review : 0,
+    duplicates: typeof row.duplicates === 'number' ? row.duplicates : 0,
+    choice: row.choice === '30d' || row.choice === '90d' || row.choice === '1y' || row.choice === 'all' || row.choice === 'custom' ? row.choice : '90d',
+  };
+}
+
 export function migrateSnapshot(input: unknown): Snapshot {
   const raw = asRecord(input, 'Backup');
   if (raw.schema !== 1 && raw.schema !== 2) throw new Error('This backup format is not supported.');
@@ -162,6 +202,8 @@ export function migrateSnapshot(input: unknown): Snapshot {
     categories: Array.isArray(raw.categories) ? raw.categories.filter((item): item is string => typeof item === 'string') : [],
     threads: migrateThreads(raw.threads),
     threadPriors: migratePriors(raw.threadPriors),
+    senderHistories: migrateSenderHistories(raw.senderHistories),
+    historyJob: migrateHistoryJob(raw.historyJob),
     exportedAt: typeof raw.exportedAt === 'number' ? raw.exportedAt : Date.now(),
   };
 }

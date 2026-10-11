@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Action, Body, EmptyState, Screen, ScreenHead, SmsSlip, TransactionRow } from '@/ui/Kit';
 import { fonts, usePalette } from '@/ui/theme';
 import { useLedger } from '@/state/LedgerProvider';
@@ -16,7 +16,8 @@ const tabs: { title: string; status: TransactionStatus | 'all' }[] = [
 export default function Inbox() {
   const p = usePalette();
   const { transactions, accounts, links, setTransaction, confirmLink, rejectLink, unlink } = useLedger();
-  const [selected, setSelected] = useState<TransactionStatus | 'all'>('all');
+  const params = useLocalSearchParams<{ status?: string }>();
+  const [selected, setSelected] = useState<TransactionStatus | 'all'>(params.status === 'review' ? 'review' : 'all');
   const [query, setQuery] = useState('');
   const [provider, setProvider] = useState('all');
   const suggestions = useMemo(() => suggestTransfers(transactions, accounts, links), [transactions, accounts, links]);

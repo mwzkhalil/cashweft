@@ -1,5 +1,5 @@
 const REFERENCE = /(?:UPI\s*Ref|Ref(?:erence)?\s*(?:no|number|id)?|RRN|UTR|TID|TRX(?:\s*ID)?|transaction\s+reference)\s*[:#.-]?\s*([A-Z0-9]{6,})/i;
-const ACCOUNT = /(?:A\/c|A\/C|Acct|Account|Card|اکاؤنٹ)\s*(?:no\.?\s*)?(?:[Xx*·-]+)?\s*(\d{3,4})\b/i;
+const ACCOUNT = /(?:A\/c|A\/C|Acct|Account|Card|اکاؤنٹ)\s*(?:no\.?\s*|ending\s*)?(?:[Xx*·-]+\s*)?(\d{3,4})\b/i;
 const STAMP = /\b(?:on\s+)?(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:\s+(\d{1,2}):(\d{2}))?\b/;
 
 export function extractReference(body: string): string | null {
@@ -29,6 +29,8 @@ export function extractRail(body: string): string | null {
   if (/\bibft\b/i.test(body)) return 'ibft';
   if (/\b1\s*link\b/i.test(body)) return '1link';
   if (/\bupi\b/i.test(body)) return 'upi';
+  if (/\batm\b/i.test(body)) return 'atm';
+  if (/\bpos\b/i.test(body)) return 'pos';
   if (/\bcard\b/i.test(body)) return 'card';
   if (/\bwallet\b/i.test(body)) return 'wallet';
   return null;

@@ -8,7 +8,6 @@ const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 
 export const SHOW_WITHOUT_MODEL = 0.82;
-export const SHOW_WITH_MODEL = 0.78;
 
 export interface ReviewCard {
   id: string;
@@ -19,7 +18,6 @@ export interface ReviewCard {
   evidence: string[];
   impactMinor: number;
   score: number;
-  jev: number | null;
   actions: ('connect' | 'reject' | 'partial' | 'keep-one')[];
 }
 
@@ -29,18 +27,12 @@ export interface TrueSpend {
   trueSpendMinor: number;
 }
 
-export interface Hypothesis {
-  kind: ThreadKind | 'UNRELATED';
-  text: string;
-}
-
 function clamp(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-export function decisionScore(rule: number, jev: number | null, prior: number): number {
-  if (jev === null) return clamp(0.75 * rule + 0.25 * prior);
-  return clamp(0.5 * rule + 0.35 * jev + 0.15 * prior);
+export function decisionScore(rule: number, prior: number): number {
+  return clamp(0.75 * rule + 0.25 * prior);
 }
 
 export function priorKey(kind: ThreadKind, parts: string[]): string {
@@ -81,25 +73,6 @@ function own(accountId: string | null, accounts: Account[]): boolean {
 function nameOverlap(left: string, right: string): boolean {
   const words = new Set(left.toLowerCase().split(/\s+/).filter(word => word.length > 2));
   return right.toLowerCase().split(/\s+/).some(word => word.length > 2 && words.has(word));
-}
-
-export function hypothesesFor(kind: ThreadKind): Hypothesis[] {
-  const shared = 'The two records are unrelated.';
-  const specific: Record<ThreadKind, string> = {
-    SELF_TRANSFER: 'The debit and the credit are the same person moving money between accounts they own.',
-    CASH_CONVERSION: 'The withdrawal converted bank money into cash. It was not spent at a merchant.',
-    REFUND: 'The later credit returns money from an earlier purchase at the same place.',
-    LOAN_OUT: 'The debit is money lent to a person, not consumption.',
-    LOAN_REPAYMENT: 'The later credit is repayment of money previously lent to that person.',
-    COMMITTEE_CONTRIBUTION: 'The debit is a rotating savings committee contribution, not ordinary spending.',
-    COMMITTEE_PAYOUT: 'The later credit is the committee payout of earlier contributions, not new income.',
-    RECURRING_COMMITMENT: 'The repeated payments are one ongoing commitment.',
-    DUPLICATE: 'The two payments are the same purchase stored twice.',
-  };
-  return [
-    { kind, text: specific[kind] },
-    { kind: 'UNRELATED', text: shared },
-  ];
 }
 
 export function passesGate(kind: ThreadKind, rows: Transaction[], accounts: Account[]): boolean {
@@ -153,12 +126,12 @@ function ruleScore(kind: ThreadKind, rows: Transaction[], accounts: Account[]): 
   return 0;
 }
 
-function card(kind: ThreadKind, rows: Transaction[], accounts: Account[], priors: ThreadPrior[], jev: number | null): ReviewCard | null {
+function card(kind: ThreadKind, rows: Transaction[], accounts: Account[], priors: ThreadPrior[]): ReviewCard | null {
   if (!passesGate(kind, rows, accounts)) return null;
   const rule = ruleScore(kind, rows, accounts);
+  if (rule < SHOW_WITHOUT_MODEL) return null;
   const key = priorKey(kind, rows.map(row => row.merchant));
-  const score = decisionScore(rule, jev, priorValue(priors, key));
-  if (!visible(rule, jev, score)) return null;
+  const score = decisionScore(rule, priorValue(priors, key));
   const ordered = [...rows].sort((a, b) => a.occurredAt - b.occurredAt);
   const ids = ordered.map(row => row.id);
   return {
@@ -170,14 +143,8 @@ function card(kind: ThreadKind, rows: Transaction[], accounts: Account[], priors
     evidence: evidenceFor(kind, ordered, accounts),
     impactMinor: impactFor(kind, ordered),
     score,
-    jev,
     actions: kind === 'LOAN_REPAYMENT' ? ['connect', 'partial', 'reject'] : kind === 'DUPLICATE' ? ['keep-one', 'reject'] : ['connect', 'reject'],
   };
-}
-
-function visible(rule: number, jev: number | null, score: number): boolean {
-  if (jev === null) return rule >= SHOW_WITHOUT_MODEL;
-  return score >= SHOW_WITH_MODEL && rule >= 0.7;
 }
 
 function titleFor(kind: ThreadKind, rows: Transaction[]): string {
@@ -224,12 +191,11 @@ function impactFor(kind: ThreadKind, rows: Transaction[]): number {
   return rows.filter(row => row.direction === 'debit').reduce((sum, row) => sum + row.amountMinor, 0);
 }
 
-export function moneySuggestions(transactions: Transaction[], accounts: Account[], threads: MoneyThread[], priors: ThreadPrior[], jev: Record<string, number | null> = {}): ReviewCard[] {
+export function moneySuggestions(transactions: Transaction[], accounts: Account[], threads: MoneyThread[], priors: ThreadPrior[]): ReviewCard[] {
   const rows = open(transactions, threads);
   const cards: ReviewCard[] = [];
   const push = (kind: ThreadKind, group: Transaction[]) => {
-    const id = pairId(kind, group.map(item => item.id));
-    const next = card(kind, group, accounts, priors, Object.prototype.hasOwnProperty.call(jev, id) ? jev[id] : null);
+    const next = card(kind, group, accounts, priors);
     if (next) cards.push(next);
   };
   for (const debit of rows.filter(item => item.direction === 'debit')) {
@@ -340,14 +306,4 @@ export function bumpPrior(priors: ThreadPrior[], key: string, confirmed: boolean
   const current = priors.find(item => item.key === key) ?? { key, confirm: 0, reject: 0 };
   const next = { ...current, confirm: current.confirm + (confirmed ? 1 : 0), reject: current.reject + (confirmed ? 0 : 1) };
   return [...priors.filter(item => item.key !== key), next];
-}
-
-export function canActivateModel(complete: boolean, bytes: number, digest: string, expectedBytes: number, expectedDigest: string): boolean {
-  return complete && bytes === expectedBytes && /^[a-f0-9]{64}$/.test(digest) && digest.toLowerCase() === expectedDigest.toLowerCase();
-}
-
-export function deviceTier(ramMb: number | null): 'rules' | 'lite' | 'roomy' {
-  if (ramMb !== null && ramMb < 3200) return 'rules';
-  if (ramMb !== null && ramMb >= 5500) return 'roomy';
-  return 'lite';
 }

@@ -1,5 +1,5 @@
 import { CASH_ACCOUNT_ID, DEFAULT_PREFERENCES, DEFAULT_SENDERS, SYSTEM_CATEGORIES } from './model';
-import type { Account, Budget, CashAdjustment, Category, MerchantCorrection, MoneyThread, Preferences, SenderRule, ThreadPrior, Transaction, TransferLink } from './model';
+import type { Account, Budget, CashAdjustment, Category, HistoryJob, MerchantCorrection, MoneyThread, Preferences, SenderHistory, SenderRule, ThreadPrior, Transaction, TransferLink } from './model';
 import { migrateSnapshot } from './snapshot';
 import type { Snapshot } from './snapshot';
 import { BROWSER_LEDGER_KEY, LEGACY_BROWSER_LEDGER_KEY, chooseStoredValue } from './identity';
@@ -7,7 +7,8 @@ import { BROWSER_LEDGER_KEY, LEGACY_BROWSER_LEDGER_KEY, chooseStoredValue } from
 function empty(): Snapshot {
   return {
     schema: 2, transactions: [], budgets: [], senders: DEFAULT_SENDERS, preferences: DEFAULT_PREFERENCES,
-    accounts: [], links: [], corrections: [], adjustments: [], categories: [], threads: [], threadPriors: [], exportedAt: 0,
+    accounts: [], links: [], corrections: [], adjustments: [], categories: [], threads: [], threadPriors: [],
+    senderHistories: [], historyJob: null, exportedAt: 0,
   };
 }
 
@@ -151,6 +152,21 @@ export async function loadMoneyThreads(): Promise<MoneyThread[]> { return read()
 export async function saveMoneyThreads(threads: MoneyThread[]): Promise<void> { const snapshot = read(); snapshot.threads = threads; write(snapshot); }
 export async function loadThreadPriors(): Promise<ThreadPrior[]> { return read().threadPriors; }
 export async function saveThreadPriors(priors: ThreadPrior[]): Promise<void> { const snapshot = read(); snapshot.threadPriors = priors; write(snapshot); }
+export async function listSenderHistories(): Promise<SenderHistory[]> { return read().senderHistories; }
+export async function saveSenderHistory(row: SenderHistory): Promise<void> {
+  const snapshot = read();
+  snapshot.senderHistories = [...snapshot.senderHistories.filter(item => item.address !== row.address), row];
+  write(snapshot);
+}
+export async function listSourceHashes(): Promise<string[]> {
+  return read().transactions.flatMap(item => item.sourceHash ? [item.sourceHash] : []);
+}
+export async function loadHistoryJob(): Promise<HistoryJob | null> { return read().historyJob; }
+export async function saveHistoryJob(job: HistoryJob | null): Promise<void> {
+  const snapshot = read();
+  snapshot.historyJob = job;
+  write(snapshot);
+}
 export async function exportSnapshot(): Promise<Snapshot> { return { ...read(), exportedAt: Date.now() }; }
 export async function restoreSnapshot(input: unknown): Promise<void> {
   const snapshot = migrateSnapshot(input);

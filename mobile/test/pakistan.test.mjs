@@ -61,3 +61,9 @@ test('parses a batch of synthetic messages quickly enough for a phone-sized inbo
   const elapsed = Date.now() - started;
   assert.ok(elapsed < 3000, `parser batch took ${elapsed}ms`);
 });
+
+test('incremental scans stay near the last successful read', async () => {
+  const { incrementalSince } = await import('../src/lib/smsWindow.ts');
+  assert.equal(incrementalSince(0), null);
+  assert.equal(incrementalSince(1_700_000_000_000), 1_700_000_000_000 - 120_000);
+});

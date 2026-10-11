@@ -8,6 +8,8 @@ import { monthLabel, startOfMonth, money } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import { showMessage } from '@/ui/dialog';
 import { canReadSms } from '@/lib/sms';
+import { loadHistoryJob } from '@/lib/database';
+import type { HistoryJob } from '@/lib/model';
 import { cashEstimate, incomeTotal, netSpend } from '@/finance/accounting/ledger';
 import { moneySuggestions } from '@/finance/threads/decide';
 import { budgetPace } from '@/finance/intelligence/forecast';
@@ -16,7 +18,7 @@ import { copy } from '@/i18n/copy';
 export default function Home() {
   const p = usePalette();
   const now = useNow();
-  const { transactions, budgets, preferences, adjustments, accounts, threads, priors, scan, busy, error, clearError } = useLedger();
+  const { transactions, budgets, preferences, adjustments, accounts, threads, priors, scan, busy, error, clearError, setPreference } = useLedger();
   const t = copy(preferences.language);
   const start = startOfMonth(now);
   const month = transactions.filter(item => item.occurredAt >= start && item.currency === 'PKR');
@@ -30,9 +32,14 @@ export default function Home() {
   const day = new Date(now).getDate();
   const days = new Date(new Date(now).getFullYear(), new Date(now).getMonth() + 1, 0).getDate();
   const pace = budgetPace(spent, budget, day, days);
+  const [paused, setPaused] = React.useState<HistoryJob | null>(null);
+  React.useEffect(() => {
+    if (!canReadSms()) return;
+    void loadHistoryJob().then(setPaused);
+  }, [preferences.lastScanAt, preferences.historyPromptSeen]);
   async function readNow() {
     try {
-      const count = await scan(true);
+      const count = await scan();
       showMessage('SMS checked', count ? `${count} new ${count === 1 ? 'entry' : 'entries'} added.` : 'No new bank transactions found.');
     } catch (e) { showMessage('Could not read SMS', e instanceof Error ? e.message : 'Try again.'); }
   }
@@ -42,6 +49,15 @@ export default function Home() {
     <Caption>{t.tagline}</Caption>
     {inr ? <Caption>INR entries stay separate until you choose what to do with them in You.</Caption> : null}
     {error ? <Pressable onPress={clearError} style={{ marginTop: 17, padding: 12, backgroundColor: p.debitSoft, borderRadius: 10 }}><Body>{error}  ×</Body></Pressable> : null}
+    {preferences.readSms && canReadSms() && !preferences.historyPromptSeen ? <View style={{ marginTop: 16, gap: 10 }}>
+      <SectionTitle>Find older transactions?</SectionTitle>
+      <Action title="Import" onPress={() => { void setPreference('historyPromptSeen', true); router.push('/sms-history'); }} />
+      <Action title="Not now" variant="secondary" onPress={() => void setPreference('historyPromptSeen', true)} />
+    </View> : null}
+    {paused ? <View style={{ marginTop: 16, gap: 8 }}>
+      <Body>History import paused</Body>
+      <Action title="Continue" variant="secondary" onPress={() => router.push({ pathname: '/sms-history', params: { resume: '1' } })} />
+    </View> : null}
     {eyes ? <Pressable accessibilityRole="button" onPress={() => router.push('/threads')} style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: p.surface, borderRadius: 12, padding: 15, marginTop: 19 }}>
       <Text style={{ fontFamily: fonts.bodyMedium, color: p.ink }}>{eyes === 1 ? '1 thing needs your eyes' : `${eyes} things need your eyes`}</Text><Text style={{ color: p.leaf }}>Open ›</Text>
     </Pressable> : null}

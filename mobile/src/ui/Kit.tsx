@@ -64,12 +64,12 @@ function actionColors(variant: 'primary' | 'secondary' | 'ghost' | 'leaf', p: Pa
   }[variant];
 }
 
-export function Action({ title, onPress, icon, variant = 'primary', disabled = false, compact = false }: {
-  title: string; onPress: () => void; icon?: IconName; variant?: 'primary' | 'secondary' | 'ghost' | 'leaf'; disabled?: boolean; compact?: boolean;
+export function Action({ title, onPress, icon, variant = 'primary', disabled = false, compact = false, accessibilityLabel }: {
+  title: string; onPress: () => void; icon?: IconName; variant?: 'primary' | 'secondary' | 'ghost' | 'leaf'; disabled?: boolean; compact?: boolean; accessibilityLabel?: string;
 }) {
   const p = usePalette();
   const { backgroundColor, color } = actionColors(variant, p);
-  return <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress}
+  return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? title} disabled={disabled} onPress={onPress}
     style={({ pressed }) => [{ minHeight: compact ? 38 : 48, paddingHorizontal: compact ? 12 : 18, borderRadius: 12,
       backgroundColor, borderWidth: variant === 'secondary' ? 1 : 0, borderColor: p.strongLine,
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0-rc.1] - 2026-10-11
+
+Release candidate. Physical-device inbox validation is still pending. No institution is marked verified from a real bank message.
+
+### Bank SMS History
+
+- Import older bank and wallet SMS already stored on Android
+- 30-day, 90-day, 1-year, all-history and custom date ranges
+- Discover financial senders locally
+- Select which senders to import
+- Backfill newly added senders independently
+- Resume interrupted imports
+- Skip duplicates
+- Keep later scans incremental
+- Reject OTP, promotional, failed and pending messages
+- Optional original-message retention
+
 ## [1.0.2] - 2026-10-10
 
 ### Fixed
@@ -43,7 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   storage, using AES-GCM encryption and a recovery-code flow.
 - Downloadable Android APK release.
 
-[Unreleased]: https://github.com/mwzkhalil/cashweft/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/mwzkhalil/cashweft/compare/v1.1.0-rc.1...HEAD
+[1.1.0-rc.1]: https://github.com/mwzkhalil/cashweft/compare/v1.0.2...v1.1.0-rc.1
 [1.0.2]: https://github.com/mwzkhalil/cashweft/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/mwzkhalil/cashweft/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mwzkhalil/cashweft/releases/tag/v1.0.0

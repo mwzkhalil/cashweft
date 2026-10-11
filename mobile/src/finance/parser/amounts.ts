@@ -8,11 +8,11 @@ export interface AmountHit {
 }
 
 const RUPEE = 'روپ[\\u06CC\\u06D2\\u064A]';
-const AMOUNT = new RegExp(`(?:PKR|Rs\\.?|INR|₹|${RUPEE}|رقم)\\s*([\\d,]+(?:\\.\\d{1,2})?)|([\\d,]+(?:\\.\\d{1,2})?)\\s*(?:PKR|Rs\\.?|INR|₹|${RUPEE})`, 'gi');
+const AMOUNT = new RegExp(`(?:PKR|Rs\\.?|INR|₹|rupees?|${RUPEE}|رقم)\\s*([\\d,]+(?:\\.\\d{1,2})?)(?:\\s*/-)?|([\\d,]+(?:\\.\\d{1,2})?)(?:\\s*/-)?\\s*(?:PKR|Rs\\.?|INR|₹|rupees?|${RUPEE})`, 'gi');
 
 const BALANCE = /(?:avl\.?\s*bal|available\s+balance|remaining\s+balance|balance\s+(?:is|rs|pkr|inr)|باقی|بقایا|بیلنس)/i;
 const LIMIT = /(?:credit\s+limit|limit\s+is|daily\s+limit)/i;
-const TRANSACTION = /(?:debit(?:ed)?|credit(?:ed)?|deduct(?:ed)?|spent|paid|payment|withdrawn|sent|transfer(?:red)?|received|deposited|refund|reversal|reversed|kata|kat\s+gaya|kat\s+gyi|bhej|nikal|wasool|hasil|jama|خرچ|کٹوتی|بھیج|موصول|جمع|واپس)/i;
+const TRANSACTION = /(?:debit(?:ed)?|credit(?:ed)?|deduct(?:ed)?|spent|paid|payment|purchase|charged|withdrawn|sent|transfer(?:red)?|received|deposited|refund|reversal|reversed|used for|kata|kat\s+gaya|kat\s+gyi|bhej|nikal|wasool|hasil|jama|خرچ|کٹوتی|بھیج|موصول|جمع|واپس)/i;
 
 function nearestBefore(before: string): AmountHit['role'] | null {
   const cues: { index: number; role: AmountHit['role'] }[] = [];
@@ -24,9 +24,13 @@ function nearestBefore(before: string): AmountHit['role'] | null {
 }
 
 function roleAt(body: string, index: number, rawLength: number): AmountHit['role'] {
-  const before = body.slice(Math.max(0, index - 40), index);
+  const before = body.slice(Math.max(0, index - 48), index);
   const after = body.slice(index + rawLength, index + rawLength + 24);
-  return nearestBefore(before) ?? (TRANSACTION.test(after) ? 'transaction' : 'unknown');
+  const beforeRole = nearestBefore(before);
+  const tail = before.slice(-18);
+  if ((beforeRole === 'balance' || beforeRole === 'limit') && (BALANCE.test(tail) || LIMIT.test(tail))) return beforeRole;
+  if (TRANSACTION.test(after)) return 'transaction';
+  return beforeRole ?? 'unknown';
 }
 
 export function extractAmounts(body: string): AmountHit[] {

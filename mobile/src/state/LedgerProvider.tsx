@@ -3,9 +3,9 @@ import { AppState, Platform } from 'react-native';
 import { randomUUID } from 'expo-crypto';
 import {
   addTransaction, addTransactions, categoryNames, editTransaction, exportSnapshot, getDatabase, listAccounts,
-  listAdjustments, listBudgets, listCorrections, listLinks, listSenders, listTransactions,
+  listAdjustments, listBudgets, listCorrections, listLinks, listSenderHistories, listSenders, listTransactions,
   loadMoneyThreads, loadPreferences, loadThreadPriors, relabelCurrency, removeAccount, removeBudget, removeLink, removeSender, restoreSnapshot,
-  saveAccount, saveAdjustment, saveBudget, saveCorrection, saveCustomCategory, saveLink, saveMoneyThreads, savePreference, saveSender, saveThreadPriors, setTransactionType,
+  saveAccount, saveAdjustment, saveBudget, saveCorrection, saveCustomCategory, saveLink, saveMoneyThreads, savePreference, saveSender, saveSenderHistory, saveThreadPriors, setTransactionType,
 } from '@/lib/database';
 import type { Snapshot } from '@/lib/database';
 import { CASH_ACCOUNT_ID, DEFAULT_PREFERENCES, SYSTEM_CATEGORIES } from '@/lib/model';
@@ -14,6 +14,7 @@ import { bumpPrior, nextType, priorKey, rewindPrior } from '@/finance/threads/de
 import type { ReviewCard } from '@/finance/threads/decide';
 import { textToMinor } from '@/lib/money';
 import { readBankSms, requestSmsPermission } from '@/lib/sms';
+import { incrementalSince } from '@/lib/smsWindow';
 import { categoryFromMemory, merchantKey, rememberCorrection } from '@/finance/accounting/corrections';
 
 interface LedgerContextValue {
@@ -32,7 +33,7 @@ interface LedgerContextValue {
   threads: MoneyThread[];
   priors: ThreadPrior[];
   refresh: () => Promise<void>;
-  scan: (full?: boolean) => Promise<number>;
+  scan: () => Promise<number>;
   enableSms: () => Promise<boolean>;
   addManual: (merchant: string, amountText: string, direction: Direction, category: Category, occurredAt?: number, transactionType?: TransactionType, accountId?: string | null) => Promise<void>;
   setTransaction: (id: string, merchant: string, category: Category, status: TransactionStatus, transactionType?: TransactionType) => Promise<void>;
@@ -58,10 +59,6 @@ interface LedgerContextValue {
 }
 
 const LedgerContext = createContext<LedgerContextValue | null>(null);
-
-function scanStart(full: boolean, lastScanAt: number): number {
-  return full || !lastScanAt ? Date.now() - 90 * 86400_000 : lastScanAt - 120_000;
-}
 
 export function LedgerProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
@@ -104,18 +101,29 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
     });
   }, [refresh]);
 
-  const scan = useCallback(async (full = false): Promise<number> => {
+  const scan = useCallback(async (): Promise<number> => {
     if (Platform.OS !== 'android' || !preferences.readSms) return 0;
     if (scanBusyRef.current) return 0;
     scanBusyRef.current = true;
     setBusy(true);
     setError(null);
     try {
-      const since = scanStart(full, preferences.lastScanAt);
-      const candidates = await readBankSms(senders, since, preferences.autoAdd, preferences.retainRawSms);
-      const prepared = candidates.map(item => ({ ...item, category: categoryFromMemory(item.merchant, item.category, corrections) }));
-      const added = await addTransactions(prepared);
-      await savePreference('lastScanAt', Date.now());
+      const [histories, currentSenders] = await Promise.all([listSenderHistories(), listSenders()]);
+      const now = Date.now();
+      let added = 0;
+      let scannedAny = false;
+      for (const sender of currentSenders.filter(item => item.enabled)) {
+        const history = histories.find(item => item.address.toUpperCase() === sender.address.toUpperCase());
+        const since = incrementalSince(history?.lastIncrementalScanAt ?? 0);
+        if (since === null || !history) continue;
+        scannedAny = true;
+        const candidates = await readBankSms([sender], since, now, preferences.autoAdd, preferences.retainRawSms);
+        const prepared = candidates.map(item => ({ ...item, category: categoryFromMemory(item.merchant, item.category, corrections) }));
+        added += await addTransactions(prepared);
+        await saveSenderHistory({ ...history, lastIncrementalScanAt: now });
+      }
+      if (!scannedAny) return 0;
+      await savePreference('lastScanAt', now);
       await refresh();
       return added;
     } catch (e) {
@@ -123,7 +131,7 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
       setError(message);
       throw e;
     } finally { scanBusyRef.current = false; setBusy(false); }
-  }, [preferences, senders, corrections, refresh]);
+  }, [preferences, corrections, refresh]);
 
   const scanRef = useRef(scan);
   useEffect(() => { scanRef.current = scan; }, [scan]);

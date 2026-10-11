@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { CASH_ACCOUNT_ID, DEFAULT_PREFERENCES, DEFAULT_SENDERS, LEGACY_CATEGORY_MAP, SYSTEM_CATEGORIES } from './model';
-import type { Account, Budget, CashAdjustment, Category, MerchantCorrection, MoneyThread, Preferences, SenderRule, ThreadPrior, Transaction, TransferLink } from './model';
-import { migratePriors, migrateSnapshot, migrateThreads } from './snapshot';
+import type { Account, Budget, CashAdjustment, Category, HistoryJob, MerchantCorrection, MoneyThread, Preferences, SenderHistory, SenderRule, ThreadPrior, Transaction, TransferLink } from './model';
+import { migrateHistoryJob, migratePriors, migrateSnapshot, migrateThreads } from './snapshot';
 import type { Snapshot } from './snapshot';
 import { DATABASE_FILE, LEGACY_DATABASE_FILE, shouldCopyLegacyDatabase } from './identity';
 
@@ -184,6 +184,7 @@ async function migrateLegacy(db: SQLite.SQLiteDatabase): Promise<void> {
   if (!tables.length) {
     await db.execAsync(CREATE_NEW);
     await db.execAsync('PRAGMA user_version = 2');
+    await ensureSenderHistory(db);
     return;
   }
   await db.execAsync(SIDE_TABLES);
@@ -213,6 +214,32 @@ async function migrateLegacy(db: SQLite.SQLiteDatabase): Promise<void> {
   }
   await db.execAsync('CREATE INDEX IF NOT EXISTS transactions_by_category ON transactions (category, occurred_at DESC)');
   await db.execAsync('CREATE INDEX IF NOT EXISTS transactions_by_type ON transactions (transaction_type, occurred_at DESC)');
+  await ensureSenderHistory(db);
+}
+
+async function ensureSenderHistory(db: SQLite.SQLiteDatabase): Promise<void> {
+  await db.execAsync(`CREATE TABLE IF NOT EXISTS sender_history (
+    address TEXT PRIMARY KEY,
+    oldest_imported_at INTEGER,
+    latest_imported_at INTEGER,
+    history_complete INTEGER NOT NULL DEFAULT 0,
+    last_incremental_scan_at INTEGER
+  )`);
+  const seeded = await db.getFirstAsync<{ value: string }>('SELECT value FROM metadata WHERE key=?', 'sender_history_seeded');
+  if (seeded) return;
+  const pref = await db.getFirstAsync<{ value: string }>('SELECT value FROM preferences WHERE key=?', 'lastScanAt');
+  let stamp = Date.now();
+  if (pref?.value) {
+    try {
+      const parsed = JSON.parse(pref.value) as unknown;
+      if (typeof parsed === 'number' && parsed > 0) stamp = parsed;
+    } catch { stamp = Date.now(); }
+  }
+  const senders = await db.getAllAsync<{ address: string }>('SELECT address FROM senders');
+  for (const sender of senders) {
+    await db.runAsync('INSERT OR IGNORE INTO sender_history (address, oldest_imported_at, latest_imported_at, history_complete, last_incremental_scan_at) VALUES (?, NULL, NULL, 0, ?)', sender.address, stamp);
+  }
+  await db.runAsync('INSERT INTO metadata (key, value) VALUES (?, ?)', 'sender_history_seeded', '1');
 }
 
 async function seed(db: SQLite.SQLiteDatabase): Promise<void> {
@@ -433,18 +460,58 @@ export async function saveThreadPriors(priors: ThreadPrior[]): Promise<void> {
   await writeMeta('threadPriors', JSON.stringify(priors));
 }
 
+function historyFromRow(row: { address: string; oldest_imported_at: number | null; latest_imported_at: number | null; history_complete: number; last_incremental_scan_at: number | null }): SenderHistory {
+  return {
+    address: row.address,
+    oldestImportedAt: row.oldest_imported_at,
+    latestImportedAt: row.latest_imported_at,
+    historyComplete: row.history_complete === 1,
+    lastIncrementalScanAt: row.last_incremental_scan_at,
+  };
+}
+
+export async function listSenderHistories(): Promise<SenderHistory[]> {
+  const rows = await (await getDatabase()).getAllAsync<{ address: string; oldest_imported_at: number | null; latest_imported_at: number | null; history_complete: number; last_incremental_scan_at: number | null }>('SELECT * FROM sender_history ORDER BY address');
+  return rows.map(historyFromRow);
+}
+
+export async function saveSenderHistory(row: SenderHistory): Promise<void> {
+  await (await getDatabase()).runAsync(`INSERT INTO sender_history (address, oldest_imported_at, latest_imported_at, history_complete, last_incremental_scan_at)
+    VALUES (?,?,?,?,?) ON CONFLICT(address) DO UPDATE SET oldest_imported_at=excluded.oldest_imported_at, latest_imported_at=excluded.latest_imported_at, history_complete=excluded.history_complete, last_incremental_scan_at=excluded.last_incremental_scan_at`,
+    row.address, row.oldestImportedAt, row.latestImportedAt, Number(row.historyComplete), row.lastIncrementalScanAt);
+}
+
+export async function listSourceHashes(): Promise<string[]> {
+  const rows = await (await getDatabase()).getAllAsync<{ source_hash: string }>('SELECT source_hash FROM transactions WHERE source_hash IS NOT NULL');
+  return rows.map(row => row.source_hash);
+}
+
+export async function loadHistoryJob(): Promise<HistoryJob | null> {
+  const raw = await readMeta('historyJob');
+  if (!raw) return null;
+  try { return migrateHistoryJob(JSON.parse(raw)); } catch { return null; }
+}
+
+export async function saveHistoryJob(job: HistoryJob | null): Promise<void> {
+  if (!job) {
+    await (await getDatabase()).runAsync('DELETE FROM metadata WHERE key=?', 'historyJob');
+    return;
+  }
+  await writeMeta('historyJob', JSON.stringify(job));
+}
+
 export async function exportSnapshot(): Promise<Snapshot> {
-  const [transactions, budgets, senders, preferences, accounts, links, corrections, adjustments, categories, threads, threadPriors] = await Promise.all([
-    listTransactions(), listBudgets(), listSenders(), loadPreferences(), listAccounts(), listLinks(), listCorrections(), listAdjustments(), listCustomCategories(), loadMoneyThreads(), loadThreadPriors(),
+  const [transactions, budgets, senders, preferences, accounts, links, corrections, adjustments, categories, threads, threadPriors, senderHistories, historyJob] = await Promise.all([
+    listTransactions(), listBudgets(), listSenders(), loadPreferences(), listAccounts(), listLinks(), listCorrections(), listAdjustments(), listCustomCategories(), loadMoneyThreads(), loadThreadPriors(), listSenderHistories(), loadHistoryJob(),
   ]);
-  return { schema: 2, transactions, budgets, senders, preferences, accounts, links, corrections, adjustments, categories, threads, threadPriors, exportedAt: Date.now() };
+  return { schema: 2, transactions, budgets, senders, preferences, accounts, links, corrections, adjustments, categories, threads, threadPriors, senderHistories, historyJob, exportedAt: Date.now() };
 }
 
 export async function restoreSnapshot(input: unknown): Promise<void> {
   const snapshot = migrateSnapshot(input);
   const db = await getDatabase();
   await db.withExclusiveTransactionAsync(async tx => {
-    await tx.execAsync('DELETE FROM transactions; DELETE FROM budgets; DELETE FROM senders; DELETE FROM preferences; DELETE FROM accounts; DELETE FROM transfer_links; DELETE FROM merchant_corrections; DELETE FROM cash_adjustments; DELETE FROM custom_categories;');
+    await tx.execAsync('DELETE FROM transactions; DELETE FROM budgets; DELETE FROM senders; DELETE FROM preferences; DELETE FROM accounts; DELETE FROM transfer_links; DELETE FROM merchant_corrections; DELETE FROM cash_adjustments; DELETE FROM custom_categories; DELETE FROM sender_history;');
     for (const t of snapshot.transactions) await tx.runAsync(INSERT_TX, ...txParams(t));
     for (const b of snapshot.budgets) await tx.runAsync('INSERT INTO budgets (category,amount_paise,amount_minor) VALUES (?,?,?)', b.category, b.amountMinor, b.amountMinor);
     for (const s of snapshot.senders) await tx.runAsync('INSERT INTO senders VALUES (?,?,?)', s.address, s.label, Number(s.enabled));
@@ -456,6 +523,15 @@ export async function restoreSnapshot(input: unknown): Promise<void> {
     for (const name of snapshot.categories) await tx.runAsync('INSERT INTO custom_categories VALUES (?)', name);
     await tx.runAsync('INSERT INTO metadata (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', 'moneyThreads', JSON.stringify(snapshot.threads));
     await tx.runAsync('INSERT INTO metadata (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', 'threadPriors', JSON.stringify(snapshot.threadPriors));
+    for (const row of snapshot.senderHistories) {
+      await tx.runAsync('INSERT INTO sender_history (address, oldest_imported_at, latest_imported_at, history_complete, last_incremental_scan_at) VALUES (?,?,?,?,?)',
+        row.address, row.oldestImportedAt, row.latestImportedAt, Number(row.historyComplete), row.lastIncrementalScanAt);
+    }
+    if (snapshot.historyJob) {
+      await tx.runAsync('INSERT INTO metadata (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', 'historyJob', JSON.stringify(snapshot.historyJob));
+    } else {
+      await tx.runAsync('DELETE FROM metadata WHERE key=?', 'historyJob');
+    }
     const count = await tx.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM transactions');
     if ((count?.n ?? 0) !== snapshot.transactions.length) throw new Error('Restore did not keep every transaction.');
   });

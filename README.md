@@ -28,11 +28,12 @@ Install it on an ARM phone (`armeabi-v7a` or `arm64-v8a`). It does not install o
 | Entries, categories, budgets, insights | Yes | Yes | Yes |
 | Paste a message | Yes | Yes | Yes |
 | Read allowlisted SMS | SMS build only | No | No |
+| Bank SMS history | SMS build only | No | No |
 | Cash Bridge, transfer suggestions, Ask Cashweft | Yes | Yes | Yes |
 | Money Threads and True Spend | Yes | Yes | Yes |
 | Encrypted backup | Yes | Yes | No |
 
-Institution names in the parser are not verified live integrations. See [docs/PAKISTAN_PARSER.md](docs/PAKISTAN_PARSER.md).
+Institution names in the parser are not verified live integrations. See [docs/PAKISTAN_PARSER.md](docs/PAKISTAN_PARSER.md) and [docs/PAKISTAN_SMS_COMPATIBILITY.md](docs/PAKISTAN_SMS_COMPATIBILITY.md).
 
 ## Money Threads
 
@@ -55,7 +56,20 @@ Possible refund
 
 These checks run on the phone from the ledger you already have. Home keeps the normal total. True Spend is a separate figure that leaves out connections you confirm. You can undo a connection.
 
-Ordinary Cashweft works with no model. Version 1.0.1 does not download one, and it does not send transaction text, amounts, or names to Hugging Face or any other AI service. The published OpenJev 0.8B weights are 1,706,036,760 bytes of bfloat16. They are not in the APK, they were not quantized, and there is no measured phone download size. Details are in [docs/MODEL_PROVENANCE.md](docs/MODEL_PROVENANCE.md) and [docs/MONEY_THREADS.md](docs/MONEY_THREADS.md).
+## Bank SMS History
+
+30d · 90d · 1y · All
+
+Import older financial SMS already stored on your Android phone.
+
+- Processed locally
+- Duplicate-safe
+- Sender-controlled
+- New scans stay incremental
+
+Android only. Requires READ_SMS in the SMS-enabled build. It reads messages the phone still has. It does not recover deleted messages.
+
+v1.1.0-rc.1 is available for device testing. Real-bank compatibility is still being validated. v1.0.2 remains the stable release.
 
 The Android package installs on ARM phones (`armeabi-v7a` or `arm64-v8a`). Minimum Android version is taken from the release APK and recorded in [release/README.md](release/README.md).
 

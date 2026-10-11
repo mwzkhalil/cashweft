@@ -3,6 +3,8 @@
 **/dist/
 **/build/
 **/.env
+**/.env.*
+!**/.env.example
 **/.env.local
 **/.env.*.local
 **/coverage/
@@ -13,5 +15,10 @@ mobile/ios/
 *.tsbuildinfo
 .DS_Store
 *.keystore
+*.jks
 keystore.properties
+*.safetensors
+*.pte
+*.onnx
+*.gguf
 **/.cxx/

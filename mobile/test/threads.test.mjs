@@ -3,9 +3,8 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { semanticMarkers } from '../src/finance/threads/markers.ts';
 import {
-  applyThread, canActivateModel, decisionScore, deviceTier, hypothesesFor, moneySuggestions, passesGate, trueSpend, undoThread,
+  applyThread, decisionScore, moneySuggestions, passesGate, trueSpend, undoThread,
 } from '../src/finance/threads/decide.ts';
-import { activatePack, OPENJEV } from '../src/finance/threads/pack.ts';
 import { migrateSnapshot } from '../src/lib/snapshot.ts';
 
 const day = 86400000;
@@ -41,16 +40,15 @@ test('suggests a self transfer only when the structure matches', () => {
   const cards = moneySuggestions(rows, accounts, [], []);
   assert.equal(cards.some(card => card.kind === 'SELF_TRANSFER'), true);
   assert.equal(passesGate('SELF_TRANSFER', [rows[0], tx({ id: 'other', amountMinor: 500 })], accounts), false);
-  const blocked = moneySuggestions(rows, accounts, [], [], { [`SELF_TRANSFER:${['in', 'out'].sort().join(':')}`]: 0.99 });
-  assert.equal(blocked.every(card => card.transactionIds.includes('out')), true);
+  assert.equal(cards.every(card => card.transactionIds.includes('out')), true);
   assert.equal(moneySuggestions([rows[0], tx({ id: 'odd', amountMinor: 400, direction: 'credit', transactionType: 'income' })], accounts, [], []).some(card => card.kind === 'SELF_TRANSFER'), false);
 });
 
-test('keeps a model opinion from creating a transfer when the amounts differ', () => {
+test('does not treat different amounts as a transfer', () => {
   const accounts = [own('hbl', 'HBL'), own('jazz', 'JazzCash')];
   const rows = [tx({ id: 'out', accountId: 'hbl' }), tx({ id: 'in', accountId: 'jazz', amountMinor: 900000, direction: 'credit', transactionType: 'income' })];
   assert.equal(passesGate('SELF_TRANSFER', rows, accounts), false);
-  assert.equal(moneySuggestions(rows, accounts, [], [], { 'SELF_TRANSFER:in:out': 0.99 }).some(card => card.kind === 'SELF_TRANSFER'), false);
+  assert.equal(moneySuggestions(rows, accounts, [], []).some(card => card.kind === 'SELF_TRANSFER'), false);
 });
 
 test('suggests a refund and a loan repayment from the records', () => {
@@ -94,18 +92,12 @@ test('treats an ATM withdrawal as cash and a repeated committee as set aside', (
   assert.equal(cards.some(card => card.kind === 'COMMITTEE_PAYOUT'), true);
 });
 
-test('flags a near duplicate and refuses a bad model file', () => {
+test('flags a near duplicate and offers to keep one copy', () => {
   const left = tx({ id: 'a', merchant: 'Imtiaz', amountMinor: 295000, occurredAt: base, sourceHash: 'one' });
   const right = tx({ id: 'b', merchant: 'Imtiaz', amountMinor: 295000, occurredAt: base + 120000, sourceHash: 'two' });
   const card = moneySuggestions([left, right], [], [], []).find(item => item.kind === 'DUPLICATE');
   assert.ok(card);
   assert.equal(card.actions.includes('keep-one'), true);
-  assert.equal(canActivateModel(false, 10, 'a'.repeat(64), 10, 'a'.repeat(64)), false);
-  assert.equal(canActivateModel(true, 10, 'b'.repeat(64), 10, 'a'.repeat(64)), false);
-  assert.equal(canActivateModel(true, 10, 'a'.repeat(64), 10, 'A'.repeat(64)), true);
-  assert.equal(deviceTier(3000), 'rules');
-  assert.equal(deviceTier(4000), 'lite');
-  assert.equal(deviceTier(8000), 'roomy');
 });
 
 test('undo restores the earlier type and a rejected pair is not suggested again', () => {
@@ -118,14 +110,6 @@ test('undo restores the earlier type and a rejected pair is not suggested again'
   assert.equal(changed[0].transactionType, 'internal_transfer');
   assert.equal(undoThread(changed, thread)[0].transactionType, 'expense');
   assert.equal(moneySuggestions(rows, [], [{ ...thread, status: 'rejected' }], []).some(card => card.kind === 'SELF_TRANSFER'), false);
-});
-
-test('refuses an unfinished or oversized model file', () => {
-  const digest = 'a'.repeat(64);
-  assert.equal(activatePack(false, 500_000_000, digest, 500_000_000, digest), false);
-  assert.equal(activatePack(true, OPENJEV.sourceBytes, OPENJEV.sourceSha256, OPENJEV.sourceBytes, OPENJEV.sourceSha256), false);
-  assert.equal(activatePack(true, 500_000_000, 'b'.repeat(64), 500_000_000, digest), false);
-  assert.equal(activatePack(true, 500_000_000, digest, 500_000_000, digest), true);
 });
 
 test('old backups load with an empty thread list', () => {
@@ -167,11 +151,6 @@ test('synthetic money-thread cases stay precise without a model', () => {
   }
 });
 
-test('asks for a closed hypothesis rather than an explanation', () => {
-  const options = hypothesesFor('SELF_TRANSFER');
-  assert.equal(options.length, 2);
-  assert.match(options[0].text, /accounts they own/);
-  assert.equal(options.some(item => /explain/i.test(item.text)), false);
-  assert.ok(decisionScore(0.9, null, 0.5) > 0);
-  assert.ok(decisionScore(0.9, 0.2, 0.5) < decisionScore(0.9, 0.95, 0.5));
+test('a stronger rule raises the suggestion score', () => {
+  assert.ok(decisionScore(0.9, 0.5) > decisionScore(0.82, 0.5));
 });

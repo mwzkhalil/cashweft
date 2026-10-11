@@ -106,11 +106,37 @@ export interface CashAdjustment {
   occurredAt: number;
 }
 
+export type HistoryRange = '30d' | '90d' | '1y' | 'all';
+
+export interface SenderHistory {
+  address: string;
+  oldestImportedAt: number | null;
+  latestImportedAt: number | null;
+  historyComplete: boolean;
+  lastIncrementalScanAt: number | null;
+}
+
+export interface HistoryJob {
+  addresses: string[];
+  since: number;
+  until: number;
+  senderIndex: number;
+  cursorDate: number | null;
+  cursorId: number | null;
+  scanned: number;
+  added: number;
+  review: number;
+  duplicates: number;
+  choice: HistoryRange | 'custom';
+}
+
 export interface Preferences {
   onboardingDone: boolean;
   readSms: boolean;
   autoAdd: boolean;
   lastScanAt: number;
+  historyPromptSeen: boolean;
+  historyRange: HistoryRange;
   language: LanguageCode;
   grouping: GroupingStyle;
   cashBridge: boolean;
@@ -125,6 +151,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   readSms: false,
   autoAdd: true,
   lastScanAt: 0,
+  historyPromptSeen: false,
+  historyRange: '90d',
   language: 'en',
   grouping: 'international',
   cashBridge: false,
