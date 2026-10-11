@@ -66,4 +66,4 @@ Pre-release with the redesigned interface. v1.0.2 remains the stable build. Both
 | SHA-256 | `33fddf56b4fcd76bccb834a5916c391c6a2d68d7f6196013865b5d1b846c69a7` | `524a7f7d675e7ede88c06c1ff272f1fe2ef9da68238e3d2e4c9e95010780ecfa` |
 | Signature | `CN=Cashweft Local Test` | `CN=Cashweft Local Test` |
 
-Not tested on a physical phone. Details: [APK verification](../docs/release/APK_VERIFICATION_1.1.0-rc.2.md).
+Not tested on a physical phone.

@@ -33,7 +33,7 @@ Install it on an ARM phone (`armeabi-v7a` or `arm64-v8a`). It does not install o
 | Money Paths and True Spend | Yes | Yes | Yes |
 | Encrypted backup | Yes | Yes | No |
 
-Institution names in the parser are not verified live integrations. See [docs/PAKISTAN_PARSER.md](docs/PAKISTAN_PARSER.md) and [docs/PAKISTAN_SMS_COMPATIBILITY.md](docs/PAKISTAN_SMS_COMPATIBILITY.md).
+Institution names in the parser are not verified live integrations.
 
 ## Money Paths
 
@@ -78,7 +78,6 @@ The Android package installs on ARM phones (`armeabi-v7a` or `arm64-v8a`). Minim
 ```
 mobile/     Expo app, SQLite ledger, CashweftSms module
 api/        Optional Fastify backup API (ciphertext only)
-docs/       Architecture, privacy, migrations, Android build
 ```
 
 The native `mobile/android` and `mobile/ios` trees are generated and gitignored. Application id, scheme, and display name come from `mobile/app.json`.
@@ -100,7 +99,7 @@ Press `w` for web, or open Expo Go for manual entry. Inbox reading needs a nativ
 npx expo run:android
 ```
 
-On Windows, set `GRADLE_USER_HOME` to a short path such as `D:\g` before Gradle. Build profiles and the release APK are in [docs/ANDROID_BUILD.md](docs/ANDROID_BUILD.md).
+On Windows, set `GRADLE_USER_HOME` to a short path such as `D:\g` before Gradle.
 
 ## Optional backup
 
@@ -119,7 +118,7 @@ $env:DATABASE_URL='postgres://cashweft:cashweft@localhost:5433/cashweft'
 npm run dev
 ```
 
-`http://localhost:4000/healthz` returns `{"ok":true}`. Point `EXPO_PUBLIC_BACKUP_API_URL` at an HTTPS deployment of `api/` when you want the phone to upload. Never put the database password in that variable. Render uses [render.yaml](render.yaml). Review the database cost before deploying. The local Compose password is for development only. An existing volume created under the previous database name is not reused; see [docs/MIGRATION_BRANDING.md](docs/MIGRATION_BRANDING.md).
+`http://localhost:4000/healthz` returns `{"ok":true}`. Point `EXPO_PUBLIC_BACKUP_API_URL` at an HTTPS deployment of `api/` when you want the phone to upload. Never put the database password in that variable. Render uses [render.yaml](render.yaml). Review the database cost before deploying. The local Compose password is for development only. An existing volume created under the previous database name is not reused.
 
 ## Checks
 
@@ -132,28 +131,6 @@ cd ../api
 npm test
 npm run typecheck
 ```
-
-## Docs
-
-- [Brand guidelines](docs/BRAND_GUIDELINES.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Rebranding audit](docs/REBRANDING_AUDIT.md)
-- [Branding migration](docs/MIGRATION_BRANDING.md)
-- [Data migrations](docs/MIGRATIONS.md)
-- [Parser and provider evidence](docs/PAKISTAN_PARSER.md)
-- [Rules behind insights and Ask Cashweft](docs/FINANCIAL_INTELLIGENCE.md)
-- [Privacy](docs/PRIVACY.md)
-- [Android builds](docs/ANDROID_BUILD.md)
-- [Play SMS policy](docs/GOOGLE_PLAY_SMS_POLICY.md)
-- [Test report](docs/TEST_REPORT.md)
-- [Limitations](docs/LIMITATIONS.md)
-- [Money Threads](docs/MONEY_THREADS.md)
-- [Model provenance](docs/MODEL_PROVENANCE.md)
-- [Product audit](docs/research/CURRENT_PRODUCT_AUDIT.md) and [research](docs/research/)
-- [Design system](docs/design/DESIGN_SYSTEM.md), [screen specifications](docs/design/SCREEN_SPECIFICATIONS.md), [before and after](docs/design/BEFORE_AFTER_UI_AUDIT.md)
-- [Tiny AI evaluation](docs/research/TINY_AI_EVALUATION.md) (no model shipped)
-- [UX and AI privacy review](docs/security/UX_AND_AI_PRIVACY_REVIEW.md)
-- [rc.2 APK verification](docs/release/APK_VERIFICATION_1.1.0-rc.2.md)
 
 ## License
 

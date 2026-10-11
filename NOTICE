@@ -15,4 +15,4 @@ https://www.apache.org/licenses/LICENSE-2.0
 
 If a future build ships those weights, include the OpenJev MIT notice,
 the Qwen Apache-2.0 LICENSE, and any NOTICE file shipped with the Qwen
-checkpoint. See docs/MODEL_PROVENANCE.md and THIRD_PARTY_NOTICES.md.
+checkpoint. See THIRD_PARTY_NOTICES.md.

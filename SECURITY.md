@@ -1,9 +1,7 @@
 # Security Policy
 
 Cashweft handles bank and wallet messages and, optionally, an encrypted backup of a
-user's spending ledger. See [docs/PRIVACY.md](docs/PRIVACY.md) for the full data flow
-before reporting an issue — it may already answer what data is read, stored,
-or transmitted.
+user's spending ledger. See [PRIVACY.md](PRIVACY.md) before reporting an issue.
 
 ## Supported versions
 

@@ -23,6 +23,7 @@ keystore.properties
 *.gguf
 **/.cxx/
 **/__pycache__/
+/docs/
 eval/smartsort/v1/*.jsonl
 eval/smartsort/v1/rules_*.json
 eval/smartsort/v1/parity_sample.json

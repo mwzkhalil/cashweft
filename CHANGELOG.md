@@ -80,7 +80,7 @@ Release candidate. Physical-device inbox validation is still pending. No institu
 
 ### Not included
 
-- No on-device model file, download, or inference. Suggestions in this release come from Cashweft’s own checks. See `docs/MODEL_PROVENANCE.md`.
+- No on-device model file, download, or inference. Suggestions in this release come from Cashweft’s own checks.
 
 ## [1.0.0] - 2026-10-04
 
