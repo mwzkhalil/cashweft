@@ -64,7 +64,7 @@ export function answerQuestion(query: string, transactions: Transaction[], now =
     const month = Number(folded.match(/\bmonth\s+(\d{1,2})\b/)?.[1]);
     if (month < 1 || month > 12) return { intent: 'invalid_date', text: 'That month is not valid.', confident: false };
   }
-  const spendish = /spend|spent|kharcha|خرچ|expense|kitna|کتنا|compare|biggest|jazzcash|grocery|groceries/.test(folded) || /خرچ|کتنا/.test(text);
+  const spendish = /spend|spent|kharcha|خرچ|expense|kitna|کتنا|compare|biggest|jazzcash|grocery|groceries|income|salary|amdani/.test(folded) || /خرچ|کتنا|آمدن|تنخواہ/.test(text);
   if (!spendish) {
     return { intent: 'unsupported', text: 'I can answer spending, income, category, merchant, and month comparisons from this phone. I cannot answer that yet.', confident: false };
   }

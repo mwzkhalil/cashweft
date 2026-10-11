@@ -1,0 +1,62 @@
+{
+  "note": "Post-fix rules were changed after the test split was seen. These numbers are NOT held-out and must not be compared as an unbiased estimate.",
+  "val": {
+    "category_before": {
+      "rows": 504,
+      "accuracy": 0.4167,
+      "suggestion_precision": 1,
+      "coverage": 0.3452
+    },
+    "category_after": {
+      "rows": 504,
+      "accuracy": 1,
+      "suggestion_precision": 1,
+      "coverage": 0.9286
+    },
+    "gate_before": {
+      "transactions": 504,
+      "missed": 0,
+      "negatives": 200,
+      "false_accepts": 0,
+      "false_accepts_by_family": {}
+    },
+    "gate_after": {
+      "transactions": 504,
+      "missed": 0,
+      "negatives": 200,
+      "false_accepts": 0,
+      "false_accepts_by_family": {}
+    }
+  },
+  "test": {
+    "category_before": {
+      "rows": 468,
+      "accuracy": 0.5,
+      "suggestion_precision": 0.7071,
+      "coverage": 0.6346
+    },
+    "category_after": {
+      "rows": 468,
+      "accuracy": 0.8098,
+      "suggestion_precision": 1,
+      "coverage": 0.7329
+    },
+    "gate_before": {
+      "transactions": 468,
+      "missed": 195,
+      "negatives": 200,
+      "false_accepts": 50,
+      "false_accepts_by_family": {
+        "neg_pending_2": 25,
+        "neg_upcoming_debit_2": 25
+      }
+    },
+    "gate_after": {
+      "transactions": 468,
+      "missed": 78,
+      "negatives": 200,
+      "false_accepts": 0,
+      "false_accepts_by_family": {}
+    }
+  }
+}

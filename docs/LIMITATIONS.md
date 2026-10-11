@@ -12,5 +12,10 @@
 - Web has no SMS reader and no encrypted backup.
 - iOS has no inbox reader.
 - OS budget notifications are not implemented. Pace is shown inside the app.
-- A release APK is not signed in this workspace because there is no release keystore.
-- This change was not smoke-tested on a physical phone.
+- Release APKs are signed with a local test certificate (`CN=Cashweft Local Test`), not a Play Store upload key.
+- 1.1.0-rc.2 was not smoke-tested on a physical phone.
+- Terse card alerts with no direction word ("Txn PKR 30,550 Shop card1234") are not parsed. The rules do not guess debit or credit.
+- Activity's transfer suggestions and Money Paths are two separate systems that can describe the same money.
+- In Urdu mode, month names, Ask answers, and the Bank SMS, Accounts, Backup, Export, and About screens are still English. The Urdu text has not had a native-speaker review.
+- No usability study with real participants has been run on the redesign.
+- No on-device model ships. Categories come from rules and personal category memory.

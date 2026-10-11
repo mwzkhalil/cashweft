@@ -3,11 +3,13 @@ import type { Direction, TransactionType } from '../../lib/model';
 const OTP = /\b(otp|one[\s-]?time(?:\s+password)?|verification code|security code|login code|never share|do not share|is code ko|raaz|valid for \d+\s*min|کوڈ شیئر|او ٹی پی)\b/i;
 const PROMO = /\b(cashback offer|discount|coupon|apply now|limited time|shop now|sale ends|pre[\s-]?approved|loan offer|credit card offer|ابھی اپلائی|رعایت)\b|\b(sale|win|prize)\b/i;
 const EVIDENCE = /\b(debit(?:ed)?|credit(?:ed)?|deduct(?:ed)?|spent|paid|purchase|withdrawn|transfer(?:red)?|sent|received|deposited|charged|refund(?:ed)?|reversed|reversal|reverted)\b/i;
-const FAILED = /\b(failed|declined|unsuccessful|could not be processed|not processed|pending|in process|rejected|cancelled|canceled|زیر التوا|ناکام|مسترد)\b/i;
+const FAILED = /\b(failed|declined|unsuccessful|could not be processed|not processed|pending|in process|under process|rejected|cancelled|canceled|زیر التوا|ناکام|مسترد)\b/i;
+const UPCOMING = /\b(will be (?:debited|deducted|charged|transferred|paid)|(?:is |are )?scheduled (?:on|for)|is due on|due by)\b/i;
+const SETTLED = /\b(?:has been|have been|was|were) (?:debited|deducted|paid|credited|transferred|sent|received|charged)\b|\bsuccessful(?:ly)?\b/i;
 const REFUND = /\b(refund(?:ed)?|reversal|reversed|reversed back|reverted|returned|wapas|واپس|واپسی)\b/i;
 const WITHDRAWAL = /\b(atm|cash withdrawal|withdrawn|cash withdrawn|نقد)\b/i;
 const FEE = /\b(service charge|processing fee|sms charges?|annual fee|چارجز)\b/i;
-const DEBIT = /\b(debit(?:ed)?|deduct(?:ed)?|spent|paid|payment of|purchase|charged|sent|transfer(?:red)?|bill payment|top-?up|was used for|kata|kat gaya|kat gayi|kat gya|bhej dia|bhej diya|bheja|nikal gaya|nikal)\b|خرچ|کٹوت[\u06CC\u06D2\u064A]|بھیج|منتقل/i;
+const DEBIT = /\b(debit(?:ed)?|deduct(?:ed)?|spent|paid|payment of|purchase|pos|charged|sent|transfer(?:red)?|bill payment|top-?up|was used for|kata|kat gaya|kat gayi|kat gya|bhej dia|bhej diya|bheja|nikal gaya|nikal)\b|خرچ|کٹوت[\u06CC\u06D2\u064A]|بھیج|منتقل/i;
 const CREDIT = /\b(credit(?:ed)?|received|deposited|salary|wasool|hasil|jama|mila|aa gaya|a gaya|موصول|جمع|تنخواہ)\b/i;
 
 export interface Movement {
@@ -20,6 +22,7 @@ export function rejectReason(body: string): string | null {
   if (OTP.test(body)) return 'otp';
   if (PROMO.test(body) && !EVIDENCE.test(body)) return 'promo';
   if (FAILED.test(body) && !REFUND.test(body)) return 'not_settled';
+  if (UPCOMING.test(body) && !SETTLED.test(body)) return 'upcoming';
   return null;
 }
 

@@ -17,6 +17,26 @@ export function timeLabel(timestamp: number): string { return timed.format(new D
 export function monthLabel(timestamp: number): string {
   return new Intl.DateTimeFormat('en-PK', { month: 'long' }).format(new Date(timestamp));
 }
+export function startOfDay(timestamp: number): number {
+  const date = new Date(timestamp);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+export type DayLabel = { kind: 'today' } | { kind: 'yesterday' } | { kind: 'date'; text: string };
+
+export function groupByDay<T extends { occurredAt: number }>(items: T[], now: number): { day: number; label: DayLabel; items: T[] }[] {
+  const today = startOfDay(now);
+  const yesterday = startOfDay(today - 1);
+  const groups: { day: number; label: DayLabel; items: T[] }[] = [];
+  for (const item of items) {
+    const day = startOfDay(item.occurredAt);
+    const last = groups[groups.length - 1];
+    if (last && last.day === day) { last.items.push(item); continue; }
+    groups.push({ day, label: day === today ? { kind: 'today' } : day === yesterday ? { kind: 'yesterday' } : { kind: 'date', text: dateLabel(item.occurredAt) }, items: [item] });
+  }
+  return groups;
+}
+
 export function startOfMonth(timestamp: number): number {
   const date = new Date(timestamp);
   return new Date(date.getFullYear(), date.getMonth(), 1).getTime();

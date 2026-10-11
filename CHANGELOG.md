@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0-rc.2] - 2026-10-11
+
+Release candidate for the redesigned interface. Not tested on a physical phone. v1.0.2 remains the stable release.
+
+### Changed
+
+- Four tabs: Home, Activity, Insights, You. Budgets moved into Insights as a Spending | Budgets switch.
+- The tab bar height follows the phone's navigation inset, and screens pad for it, so content is no longer hidden behind the system buttons.
+- At 600dp and wider the tabs become a side rail and content is centred.
+- The You tab uses a person glyph. The legacy K mark is gone.
+- Home shows one summary card: Spent this month (true spend), Received, Moved, and the cash estimate, with up to three items that need attention.
+- Activity has filter chips (All, Spent, Received, Moved, Review), day groups, and one collapsible card for possible moves.
+- Money Threads is now called Money Paths. Suggested paths have a dashed border and a "Suggested" label. Confirmed paths have a solid border and a check. Its totals match Home.
+- Every category has its own glyph, so colour is not the only cue.
+- Add an entry starts with the amount, shows recent categories first, and uses plain type names such as "Move between my accounts" and "ATM cash".
+- Ask Cashweft offers suggested questions and answers in a card.
+- Bank SMS settings and senders live on one Bank SMS screen.
+- Theme choice (System, Light, Dark) under You.
+- Urdu mirrors layout and chevrons; amounts stay left to right. Inserted values are wrapped in bidi isolates.
+- Chips and icon buttons are at least 48dp. Progress animations respect Reduce motion.
+
+### Fixed
+
+- "Auto-debit ... scheduled on" and "will be debited" messages are no longer recorded as spending.
+- "Under process" transfers are treated as pending.
+- Card alerts that start with POS are read as debits.
+- A trailing "Bal" or "Balance" figure is not taken as the amount.
+- Shop payments made by Raast QR are no longer filed as Transfers when the shop name is known. India-only brand rules were removed and Pakistani brands added.
+
+### Not included
+
+- No on-device model. The SmartSort study did not pass its pre-registered gates, so categories use the revised rules only.
+
 ## [1.1.0-rc.1] - 2026-10-11
 
 Release candidate. Physical-device inbox validation is still pending. No institution is marked verified from a real bank message.

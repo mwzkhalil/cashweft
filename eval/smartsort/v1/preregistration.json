@@ -1,0 +1,25 @@
+{
+  "written_before_test_split_was_scored": true,
+  "date": "2026-10-11",
+  "dataset": "eval/smartsort/v1 (synthetic, seed 20261011, template families and merchants disjoint across train/val/test)",
+  "systems": {
+    "R1": "current categoryFor() and parseBankSms() as shipped in 1.1.0-rc.1",
+    "R2": "revised deterministic rules: Pakistan brand lexicon from train+val merchants only, generic Pakistani shop words, Indian-only brands removed",
+    "M": "hashed character and word n-gram multinomial logistic regression, int8 weights, trained on train, threshold tuned on val",
+    "R2+M": "R2 first; M suggests only when R2 returns Other and M confidence clears the validation threshold"
+  },
+  "category_ship_gate": {
+    "coverage_gain_over_R2_points": 10,
+    "minimum_suggestion_precision": 0.9,
+    "maximum_precision_drop_vs_R2_points": 2,
+    "maximum_model_bytes": 1048576,
+    "maximum_warm_p95_ms_node": 5
+  },
+  "gate_ship_gate": {
+    "role": "may only send a rule-rejected message to Review; never adds, never overrides OTP, failed, pending, or promo rejection",
+    "minimum_recall_of_rule_missed_transactions": 0.5,
+    "maximum_false_flag_rate_on_negatives": 0.02
+  },
+  "otp_policy": "OTP rows are removed before any model sees them; the deterministic OTP rule decides alone",
+  "if_gate_fails": "do not ship the model; ship R2 if it beats R1"
+}

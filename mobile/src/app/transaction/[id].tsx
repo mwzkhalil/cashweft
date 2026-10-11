@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Action, Body, Caption, Screen, ScreenHead, SmsSlip } from '@/ui/Kit';
+import { Action, Body, Caption, Chip, Group, ListRow, Screen, ScreenHead, SmsSlip } from '@/ui/Kit';
 import { CategoryPicker, Field } from '@/ui/Forms';
-import { dateLabel, signedMoney } from '@/lib/format';
-import { TRANSACTION_TYPES } from '@/lib/model';
+import { Icon } from '@/ui/Icon';
+import { dateLabel, signedMoney, timeLabel } from '@/lib/format';
 import type { TransactionStatus, TransactionType } from '@/lib/model';
+import { typeLabel, typesFor } from '@/lib/labels';
 import { fonts, usePalette } from '@/ui/theme';
 import { useLedger } from '@/state/LedgerProvider';
 import { showMessage } from '@/ui/dialog';
 import { providerById } from '@/finance/parser/providers';
+
+const statusNames: Record<TransactionStatus, string> = { auto: 'From SMS', manual: 'Added by you', review: 'Needs review', ignored: 'Ignored' };
 
 export default function TransactionDetail() {
   const p = usePalette();
@@ -19,6 +22,7 @@ export default function TransactionDetail() {
   const [merchant, setMerchant] = useState(item?.merchant ?? '');
   const [category, setCategory] = useState(item?.category ?? 'Other');
   const [kind, setKind] = useState<TransactionType>(item?.transactionType ?? 'expense');
+  const [details, setDetails] = useState(false);
   const [busy, setBusy] = useState(false);
   if (!item) return <Screen><ScreenHead title="Entry not found" back /><Body muted>This entry is not in the current ledger.</Body></Screen>;
   async function save(status: TransactionStatus) {
@@ -29,23 +33,26 @@ export default function TransactionDetail() {
     finally { setBusy(false); }
   }
   const provider = providerById(item.providerId);
-  return <Screen><ScreenHead title="Entry" back />
-    <Text style={{ fontFamily: fonts.mono, fontSize: 32, color: item.direction === 'debit' ? p.debit : p.credit, writingDirection: 'ltr' }}>{signedMoney(item.amountMinor, item.direction, item.currency, true, preferences.grouping)}</Text>
-    <Caption>{dateLabel(item.occurredAt)} · {item.status}</Caption>
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 16 }}>
-      {TRANSACTION_TYPES.map(value => <Pressable key={value} accessibilityRole="radio" onPress={() => setKind(value)} style={{ minHeight: 40, paddingHorizontal: 10, justifyContent: 'center', borderRadius: 9, backgroundColor: kind === value ? p.marigoldSoft : p.surface }}><Text style={{ color: p.ink, fontFamily: fonts.body }}>{value.replaceAll('_', ' ')}</Text></Pressable>)}
+  const kinds = [...new Set([...typesFor(item.direction), item.transactionType, ...(item.direction === 'debit' ? ['internal_transfer' as const] : [])])];
+  return <Screen><ScreenHead title={item.merchant} back caption={`${dateLabel(item.occurredAt)} · ${timeLabel(item.occurredAt)} · ${statusNames[item.status]}`} />
+    <Text adjustsFontSizeToFit numberOfLines={1} style={{ fontFamily: fonts.mono, fontSize: 32, color: item.direction === 'debit' ? p.ink : p.credit, writingDirection: 'ltr' }}>{signedMoney(item.amountMinor, item.direction, item.currency, true, preferences.grouping)}</Text>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8, marginTop: 8 }}>
+      {kinds.map(value => <Chip key={value} label={typeLabel(value)} selected={kind === value} onPress={() => setKind(value)} />)}
     </View>
-    <View style={{ gap: 16, marginBottom: 16 }}><Field label="Name or place" value={merchant} onChangeText={setMerchant} /><CategoryPicker value={category} onChange={setCategory} /></View>
-    <View style={{ backgroundColor: p.surface, borderRadius: 12, padding: 14, gap: 8, marginBottom: 16 }}>
-      <Body>Account ··{item.accountLast4 ?? '—'}</Body>
-      <Body>Reference {item.reference ?? '—'}</Body>
-      <Body>Source {provider?.name ?? item.providerId ?? 'Not named'} · {item.rail ?? 'unspecified rail'}</Body>
-      <Caption>Confidence {Math.round(item.confidence * 100)}%. Provider names are not verified bank integrations.</Caption>
-    </View>
-    {item.rawBody ? <View style={{ marginBottom: 16 }}><SmsSlip transaction={item} /></View> : <Caption>Message text was not kept. Parsed fields are still here.</Caption>}
-    <View style={{ gap: 8, marginTop: 12 }}>
-      <Action title={busy ? 'Saving…' : 'Save'} disabled={busy} onPress={() => void save(item.status === 'manual' ? 'manual' : 'auto')} />
-      {item.status !== 'ignored' ? <Action title="Ignore" variant="ghost" disabled={busy} onPress={() => void save('ignored')} /> : null}
-    </View>
+    <View style={{ gap: 16, marginVertical: 16 }}><Field label="Name or place" value={merchant} onChangeText={setMerchant} /><CategoryPicker value={category} onChange={setCategory} recent={[item.category]} /></View>
+    <Action title={busy ? '…' : item.status === 'review' ? 'Looks right' : 'Save'} disabled={busy} onPress={() => void save(item.status === 'manual' ? 'manual' : 'auto')} />
+    {item.status !== 'ignored' ? <View style={{ marginTop: 8 }}><Action title="Not a spend, ignore it" variant="ghost" disabled={busy} onPress={() => void save('ignored')} /></View> : null}
+    <Pressable accessibilityRole="button" accessibilityState={{ expanded: details }} onPress={() => setDetails(value => !value)} style={{ minHeight: 48, marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 15, color: p.ink }}>Details</Text>
+      <View style={{ transform: [{ rotate: details ? '90deg' : '0deg' }] }}><Icon name="chevron" color={p.muted} size={16} /></View>
+    </Pressable>
+    {details ? <>
+      <Group>
+        <ListRow title="Account" value={item.accountLast4 ? `··${item.accountLast4}` : '—'} />
+        <ListRow title="Reference" value={item.reference ?? '—'} />
+        <ListRow title="Source" value={provider?.name ?? item.providerId ?? '—'} last />
+      </Group>
+      {item.rawBody ? <View style={{ marginTop: 12 }}><SmsSlip transaction={item} /></View> : <Caption style={{ marginTop: 12 }}>Message text was not kept.</Caption>}
+    </> : null}
   </Screen>;
 }

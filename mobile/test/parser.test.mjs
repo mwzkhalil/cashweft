@@ -4,10 +4,10 @@ import { parseBankSms } from '../src/lib/parser.ts';
 
 const dated = new Date(2026, 9, 4, 12, 0, 0, 0).getTime();
 
-test('parses a debit while keeping source fields for review', () => {
+test('parses a debit while keeping source fields, without guessing a category for brands outside Pakistan', () => {
   assert.deepEqual(parseBankSms('A/C X3381 debited by INR 2,480.00 to VPA zomato@pay Ref 123456789012 on 04-10-2026'), {
     merchant: 'Zomato@Pay', amountMinor: 248000, currency: 'INR', direction: 'debit', transactionType: 'expense',
-    category: 'Food and Restaurants', accountLast4: '3381', reference: '123456789012', confidence: 0.95,
+    category: 'Other', accountLast4: '3381', reference: '123456789012', confidence: 0.95,
     providerId: null, rail: null, occurredAt: dated,
   });
 });

@@ -108,6 +108,8 @@ export interface CashAdjustment {
 
 export type HistoryRange = '30d' | '90d' | '1y' | 'all';
 
+export type ThemeChoice = 'system' | 'light' | 'dark';
+
 export interface SenderHistory {
   address: string;
   oldestImportedAt: number | null;
@@ -142,6 +144,7 @@ export interface Preferences {
   cashBridge: boolean;
   retainRawSms: boolean;
   legacyCurrency: LegacyCurrencyChoice;
+  theme: ThemeChoice;
 }
 
 export const DEFAULT_SENDERS: SenderRule[] = [];
@@ -158,6 +161,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   cashBridge: false,
   retainRawSms: false,
   legacyCurrency: 'none',
+  theme: 'system',
 };
 
 export const CASH_ACCOUNT_ID = 'cash-wallet';

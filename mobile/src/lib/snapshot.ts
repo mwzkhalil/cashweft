@@ -107,6 +107,7 @@ function migratePreferences(value: unknown, legacy: boolean, hadTransactions: bo
   if (next.grouping !== 'southAsian') next.grouping = 'international';
   if (!['none', 'pending', 'keep-inr', 'mark-pkr'].includes(next.legacyCurrency)) next.legacyCurrency = 'none';
   if (typeof next.historyPromptSeen !== 'boolean') next.historyPromptSeen = false;
+  if (next.theme !== 'light' && next.theme !== 'dark') next.theme = 'system';
   if (next.historyRange !== '30d' && next.historyRange !== '90d' && next.historyRange !== '1y' && next.historyRange !== 'all') next.historyRange = '90d';
   if (legacy && hadTransactions && next.legacyCurrency === 'none') next.legacyCurrency = 'pending';
   return next;

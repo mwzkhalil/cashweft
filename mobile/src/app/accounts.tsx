@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, Switch, Text, View } from 'react-native';
 import { randomUUID } from 'expo-crypto';
-import { Action, Body, Caption, Screen, ScreenHead } from '@/ui/Kit';
+import { Action, Body, Caption, Chip, Screen, ScreenHead } from '@/ui/Kit';
 import { Field } from '@/ui/Forms';
 import { fonts, usePalette } from '@/ui/theme';
 import { useLedger } from '@/state/LedgerProvider';
@@ -25,18 +25,18 @@ export default function Accounts() {
     } catch (e) { showMessage('Could not save', e instanceof Error ? e.message : 'Try again.'); }
   }
   return <Screen><ScreenHead title="Accounts" back />
-    <Body muted>Mark accounts as yours before Cashweft will treat a pair as your own transfer. Ownership is never guessed.</Body>
+    <Caption>Only accounts marked as yours count as your own moves. Cashweft never guesses this.</Caption>
     <View style={{ gap: 12, marginTop: 16 }}>
       {accounts.map(account => <View key={account.id} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: p.line, flexDirection: 'row', alignItems: 'center' }}>
-        <View style={{ flex: 1 }}><Text style={{ fontFamily: fonts.bodyMedium, color: p.ink }}>{account.name}</Text><Caption>{account.kind} · {account.isOwn ? 'Yours' : 'Not yours'}{account.maskedId ? ` · ··${account.maskedId}` : ''}</Caption></View>
+        <View style={{ flex: 1 }}><Text style={{ fontFamily: fonts.bodyMedium, color: p.ink }}>{account.name}</Text><Caption>{({ bank: 'Bank', wallet: 'Wallet', cash: 'Cash' } as const)[account.kind]} · {account.isOwn ? 'Yours' : 'Not yours'}{account.maskedId ? ` · ··${account.maskedId}` : ''}</Caption></View>
         {account.id !== 'cash-wallet' ? <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${account.name}`} onPress={() => void removeAccount(account.id)}><Text style={{ color: p.debit }}>Remove</Text></Pressable> : null}
       </View>)}
       <Field label="Name" value={name} onChangeText={setName} placeholder="HBL current" />
-      <View style={{ flexDirection: 'row', gap: 8 }}>{(['bank', 'wallet', 'cash'] as const).map(value => <Pressable key={value} accessibilityRole="radio" onPress={() => setKind(value)} style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 10, backgroundColor: kind === value ? p.leaf : p.surface }}><Text style={{ color: kind === value ? p.onLeaf : p.ink }}>{value}</Text></Pressable>)}</View>
+      <View style={{ flexDirection: 'row', gap: 8 }}>{(['bank', 'wallet', 'cash'] as const).map(value => <Chip key={value} label={({ bank: 'Bank', wallet: 'Wallet', cash: 'Cash' } as const)[value]} selected={kind === value} onPress={() => setKind(value)} />)}</View>
       <Field label="Last 4, optional" value={masked} onChangeText={setMasked} placeholder="3381" />
       <View style={{ flexDirection: 'row', alignItems: 'center' }}><View style={{ flex: 1 }}><Body>This account is mine</Body></View><Switch accessibilityLabel="This account is mine" value={isOwn} onValueChange={setIsOwn} /></View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {PROVIDERS.filter(item => item.kind !== 'rail').slice(0, 8).map(item => <Pressable key={item.id} onPress={() => setProviderId(item.id)} style={{ paddingHorizontal: 10, minHeight: 40, justifyContent: 'center', borderRadius: 8, backgroundColor: providerId === item.id ? p.marigoldSoft : p.surface }}><Text style={{ color: p.ink }}>{item.name}</Text></Pressable>)}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 8 }}>
+        {PROVIDERS.filter(item => item.kind !== 'rail').slice(0, 8).map(item => <Chip key={item.id} label={item.name} selected={providerId === item.id} onPress={() => setProviderId(item.id)} />)}
       </View>
       <Caption>Names help you label an account. They are not a connection to the bank.</Caption>
       <Action title="Save account" onPress={() => void save()} />

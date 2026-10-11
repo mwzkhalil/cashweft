@@ -1,5 +1,44 @@
 # Test report
 
+## 1.1.0-rc.2 (11 October 2026)
+
+Run from this workspace on Windows with Node v26.1.0. No phone or emulator was attached.
+
+| Check | Result |
+|-------|--------|
+| `mobile`: `npm test` | 70 passed, 0 failed |
+| `mobile`: `npx tsc --noEmit -p .` | Passed |
+| `mobile`: `npm run lint` | Exit 0, no problems |
+| `api`: `npm test` | 3 passed |
+| `api`: `npm run typecheck`, `npm run build` | Passed |
+| Release APKs | Both built and verified; see [APK verification](release/APK_VERIFICATION_1.1.0-rc.2.md) |
+
+New in `test/redesign.test.mjs` (18 tests):
+
+- Navigation: four tabs and no Budgets route, inset-aware tab bar height, tab screen padding, the wide rail, and no K path or emoji glyphs.
+- Language: English and Urdu catalogs have the same keys and placeholders, `fill()` adds bidi isolates, and tab files avoid left and right margins.
+- Theme: preference resolution and snapshot migration.
+- Labels: plain type labels and direction-specific type lists.
+- Money: `periodSummary`, `matchesView`, and `groupByDay`.
+- SmartSort: the interface reports no model and returns rule results.
+- Parser: OTP rejection; "scheduled" and "under process" rejection, while "has been paid … next bill due" still parses; POS debits; processing fees; trailing balance; and rail-only Transfers.
+
+One existing parser test was changed. It expected the India-only "zomato" rule, which was removed, and now expects "Other".
+
+Rule quality after the parser fixes, measured on the synthetic SmartSort test split (not held-out, because the fixes were written after seeing that split):
+
+| Measure | Before | After |
+|---------|--------|-------|
+| Category accuracy | 0.500 | 0.810 |
+| Suggestion precision | 0.707 | 1.000 |
+| Coverage | 0.635 | 0.733 |
+| Transactions missed | 195 of 468 | 78 of 468 |
+| Negatives wrongly accepted | 50 of 200 | 0 of 200 |
+
+The interface was checked in the Expo web build with an invented ledger; see [USABILITY_VALIDATION.md](design/USABILITY_VALIDATION.md). That is not a usability study and not a phone test.
+
+## 1.0.x
+
 Run on 7 October 2026 from this workspace. Node is v26.1.0. These are the commands that were executed, not a device lab.
 
 ## Mobile (`mobile`)

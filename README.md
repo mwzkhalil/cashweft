@@ -30,14 +30,14 @@ Install it on an ARM phone (`armeabi-v7a` or `arm64-v8a`). It does not install o
 | Read allowlisted SMS | SMS build only | No | No |
 | Bank SMS history | SMS build only | No | No |
 | Cash Bridge, transfer suggestions, Ask Cashweft | Yes | Yes | Yes |
-| Money Threads and True Spend | Yes | Yes | Yes |
+| Money Paths and True Spend | Yes | Yes | Yes |
 | Encrypted backup | Yes | Yes | No |
 
 Institution names in the parser are not verified live integrations. See [docs/PAKISTAN_PARSER.md](docs/PAKISTAN_PARSER.md) and [docs/PAKISTAN_SMS_COMPATIBILITY.md](docs/PAKISTAN_SMS_COMPATIBILITY.md).
 
-## Money Threads
+## Money Paths
 
-Cashweft now understands the difference between money you spent and money you simply moved.
+Called Money Threads before 1.1.0-rc.2. Cashweft now understands the difference between money you spent and money you simply moved.
 
 HBL → JazzCash  
 Self-transfer, not spending
@@ -69,7 +69,7 @@ Import older financial SMS already stored on your Android phone.
 
 Android only. Requires READ_SMS in the SMS-enabled build. It reads messages the phone still has. It does not recover deleted messages.
 
-v1.1.0-rc.1 is available for device testing. Real-bank compatibility is still being validated. v1.0.2 remains the stable release.
+v1.1.0-rc.2 is the current release candidate. It adds the redesigned four-tab interface and is attached to its GitHub pre-release with an SMS build and a permission-free build. It has not been tested on a physical phone, and real-bank compatibility is still being validated. v1.0.2 remains the stable release.
 
 The Android package installs on ARM phones (`armeabi-v7a` or `arm64-v8a`). Minimum Android version is taken from the release APK and recorded in [release/README.md](release/README.md).
 
@@ -149,6 +149,11 @@ npm run typecheck
 - [Limitations](docs/LIMITATIONS.md)
 - [Money Threads](docs/MONEY_THREADS.md)
 - [Model provenance](docs/MODEL_PROVENANCE.md)
+- [Product audit](docs/research/CURRENT_PRODUCT_AUDIT.md) and [research](docs/research/)
+- [Design system](docs/design/DESIGN_SYSTEM.md), [screen specifications](docs/design/SCREEN_SPECIFICATIONS.md), [before and after](docs/design/BEFORE_AFTER_UI_AUDIT.md)
+- [Tiny AI evaluation](docs/research/TINY_AI_EVALUATION.md) (no model shipped)
+- [UX and AI privacy review](docs/security/UX_AND_AI_PRIVACY_REVIEW.md)
+- [rc.2 APK verification](docs/release/APK_VERIFICATION_1.1.0-rc.2.md)
 
 ## License
 

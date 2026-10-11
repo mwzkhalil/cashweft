@@ -1,30 +1,35 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Text, View } from 'react-native';
-import { Body, Screen, ScreenHead, SectionTitle } from '@/ui/Kit';
+import { Body, Caption, Group, ListRow, Screen, ScreenHead } from '@/ui/Kit';
 import { BrandLockup } from '@/ui/Logo';
 import { fonts, usePalette } from '@/ui/theme';
 import { PROVIDERS } from '@/finance/parser/providers';
+import { APP_VERSION } from '@/lib/version';
 
-const principles = [
-  ['Privacy First', 'The ledger stays on this phone. Cashweft does not ask for an account.'],
-  ['Local by Design', 'Parsing, budgets, and Ask Cashweft run on the device.'],
-  ['Secure backup', 'Optional backup is encrypted on this phone. The server stores ciphertext only.'],
+const facts = [
+  ['No account', 'Your ledger stays on this phone.'],
+  ['Read on the phone', 'SMS, budgets, Money Paths, and Ask run here. Nothing is uploaded.'],
+  ['Backup is optional', 'Backups are encrypted on the phone before they leave it.'],
+  ['Phone storage', 'The ledger file itself is not encrypted by Cashweft.'],
 ];
 
 export default function About() {
   const p = usePalette();
+  const [banks, setBanks] = useState(false);
   return <Screen><ScreenHead title="About" back />
-    <View style={{ alignItems: 'center', marginTop: 8 }}><BrandLockup size={72} /></View>
-    <Body style={{ marginTop: 16, textAlign: 'center' }}>Version 1.1.0-rc.1</Body>
-    <View style={{ marginTop: 22 }}><SectionTitle>How Cashweft works</SectionTitle></View>
-    {principles.map(([title, detail]) => <View key={title} style={{ marginTop: 14 }}>
-      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 16, color: p.ink }}>{title}</Text>
-      <Body muted>{detail}</Body>
-    </View>)}
-    <View style={{ marginTop: 22 }}><SectionTitle>Institution support</SectionTitle></View>
-    {PROVIDERS.map(item => <Text key={item.id} style={{ marginTop: 10, color: p.ink, fontFamily: fonts.body }}>{item.name}: {item.support}. {item.evidence}</Text>)}
-    <View style={{ marginTop: 22 }}><SectionTitle>On this phone</SectionTitle></View>
-    <Body muted>Money Threads connects related entries on this phone. Cashweft’s own checks decide what to show, and nothing is uploaded.</Body>
-    <Body muted style={{ marginTop: 16 }}>No provider in this build is verified against live bank messages. The local SQLite file is not encrypted by Cashweft.</Body>
+    <View style={{ alignItems: 'center', marginTop: 4, gap: 8 }}><BrandLockup size={64} /><Caption>Version {APP_VERSION}</Caption></View>
+    <Group>
+      {facts.map(([title, detail], index) => <View key={title} style={{ padding: 14, gap: 2, borderBottomWidth: index < facts.length - 1 ? 1 : 0, borderBottomColor: p.line }}>
+        <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 15, color: p.ink }}>{title}</Text>
+        <Caption>{detail}</Caption>
+      </View>)}
+    </Group>
+    <Group>
+      <ListRow icon="info" title="Banks and wallets" value={`${PROVIDERS.length}`} onPress={() => setBanks(value => !value)} last={!banks} />
+      {banks ? <View style={{ padding: 14, gap: 8 }}>
+        {PROVIDERS.map(item => <Body key={item.id}>{item.name} · <Text style={{ color: p.muted }}>{item.support}</Text></Body>)}
+        <Caption>No bank format in this build is verified against live messages.</Caption>
+      </View> : null}
+    </Group>
   </Screen>;
 }

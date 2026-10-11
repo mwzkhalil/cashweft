@@ -10,7 +10,7 @@ export interface AmountHit {
 const RUPEE = 'روپ[\\u06CC\\u06D2\\u064A]';
 const AMOUNT = new RegExp(`(?:PKR|Rs\\.?|INR|₹|rupees?|${RUPEE}|رقم)\\s*([\\d,]+(?:\\.\\d{1,2})?)(?:\\s*/-)?|([\\d,]+(?:\\.\\d{1,2})?)(?:\\s*/-)?\\s*(?:PKR|Rs\\.?|INR|₹|rupees?|${RUPEE})`, 'gi');
 
-const BALANCE = /(?:avl\.?\s*bal|available\s+balance|remaining\s+balance|balance\s+(?:is|rs|pkr|inr)|باقی|بقایا|بیلنس)/i;
+const BALANCE = /(?:avl\.?\s*bal|available\s+balance|remaining\s+balance|balance\s+(?:is|rs|pkr|inr)|\b(?:new\s+|current\s+)?bal(?:ance)?\s*[:.]?\s*$|باقی|بقایا|بیلنس)/i;
 const LIMIT = /(?:credit\s+limit|limit\s+is|daily\s+limit)/i;
 const TRANSACTION = /(?:debit(?:ed)?|credit(?:ed)?|deduct(?:ed)?|spent|paid|payment|purchase|charged|withdrawn|sent|transfer(?:red)?|received|deposited|refund|reversal|reversed|used for|kata|kat\s+gaya|kat\s+gyi|bhej|nikal|wasool|hasil|jama|خرچ|کٹوتی|بھیج|موصول|جمع|واپس)/i;
 

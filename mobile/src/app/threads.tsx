@@ -1,110 +1,128 @@
 import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Action, Body, Caption, Screen, ScreenHead } from '@/ui/Kit';
+import { Action, Caption, Chip, ChipRow, EmptyState, Screen, ScreenHead, SummaryCard } from '@/ui/Kit';
+import { Icon } from '@/ui/Icon';
 import { fonts, usePalette } from '@/ui/theme';
 import { useLedger } from '@/state/LedgerProvider';
-import { money } from '@/lib/format';
-import { loanPosition, moneySuggestions, trueSpend } from '@/finance/threads/decide';
+import { money, startOfMonth } from '@/lib/format';
+import { useNow } from '@/lib/useNow';
+import { pathLabel } from '@/lib/labels';
+import { loanPosition, moneySuggestions } from '@/finance/threads/decide';
+import { periodSummary } from '@/finance/accounting/summary';
 import type { ReviewCard } from '@/finance/threads/decide';
-import type { MoneyThread, ThreadKind } from '@/lib/model';
+import type { GroupingStyle, MoneyThread, ThreadKind, Transaction } from '@/lib/model';
 import { showMessage } from '@/ui/dialog';
+import { copy } from '@/i18n/copy';
 
-const sections = ['Needs review', 'Connected', 'Loans', 'Committee', 'Cash', 'Refunds'] as const;
+const sections = ['check', 'confirmed', 'loans', 'committee', 'cash', 'refunds'] as const;
+type Section = (typeof sections)[number];
+const sectionNames: Record<Section, string> = { check: 'To check', confirmed: 'Confirmed', loans: 'Loans', committee: 'Committee', cash: 'Cash', refunds: 'Refunds' };
 
 function confidence(score: number): string {
-  if (score >= 0.9) return 'High';
-  if (score >= 0.82) return 'Fair';
-  return 'Low';
+  if (score >= 0.9) return 'Strong match';
+  if (score >= 0.82) return 'Fair match';
+  return 'Weak match';
 }
 
-export default function Threads() {
-  const p = usePalette();
+export default function MoneyPaths() {
+  const now = useNow();
   const { transactions, accounts, threads, priors, preferences, confirmThread, rejectThread, undoThread } = useLedger();
-  const [section, setSection] = useState<(typeof sections)[number]>('Needs review');
+  const t = copy(preferences.language);
+  const g = preferences.grouping;
   const cards = moneySuggestions(transactions, accounts, threads, priors);
-  const spend = trueSpend(transactions.filter(item => item.currency === 'PKR'), threads);
+  const [section, setSection] = useState<Section>('check');
+  const month = transactions.filter(item => item.currency === 'PKR' && item.occurredAt >= startOfMonth(now));
+  const summary = periodSummary(month, threads);
+  const spend = { trueSpendMinor: summary.spentMinor, movedMinor: summary.movedMinor, leftMinor: summary.spentMinor + summary.movedMinor };
   const loans = loanPosition(transactions, threads);
-  async function answer(card: ReviewCard, action: 'connect' | 'partial' | 'keep-one' | 'reject') {
+  async function answer(card: ReviewCard, action: ReviewCard['actions'][number]) {
     try {
       if (action === 'reject') { await rejectThread(card); return; }
       const moved = await confirmThread(card, action);
-      if (action === 'keep-one') showMessage('Ledger updated', 'The extra copy is set aside. The first one stays.');
-      else if (moved > 0) showMessage('Ledger updated', `${money(moved, 'PKR', preferences.grouping)} is no longer counted as spending.`);
+      if (action === 'keep-one') showMessage('Ledger updated', 'The extra copy is set aside.');
+      else if (moved > 0) showMessage('Ledger updated', `${money(moved, 'PKR', g)} is no longer counted as spending.`);
     } catch (e) { showMessage('Could not update', e instanceof Error ? e.message : 'Try again.'); }
   }
   const visible = threads.filter(thread => thread.status === 'confirmed' && matches(section, thread.kind));
+  const figures = [{ label: t.moved, value: money(spend.movedMinor, 'PKR', g) }, { label: t.leftAccounts, value: money(spend.leftMinor, 'PKR', g) }];
+  if (loans.lentMinor) figures.push({ label: 'Still lent', value: money(Math.max(0, loans.lentMinor - loans.returnedMinor), 'PKR', g) });
   return <Screen>
-    <ScreenHead title="Money Threads" back />
-    <Body muted>See where money moved, and what was actually spent. Home still shows the normal total.</Body>
-    <View style={{ marginTop: 18, padding: 16, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.line }}>
-      <Caption>Money left accounts</Caption>
-      <Text style={{ fontFamily: fonts.mono, color: p.ink, marginTop: 4 }}>{money(spend.leftMinor, 'PKR', preferences.grouping)}</Text>
-      <Caption style={{ marginTop: 10 }}>Money moved</Caption>
-      <Text style={{ fontFamily: fonts.mono, color: p.ink, marginTop: 4 }}>{money(spend.movedMinor, 'PKR', preferences.grouping)}</Text>
-      <Caption style={{ marginTop: 10 }}>True Spend</Caption>
-      <Text style={{ fontFamily: fonts.displayMedium, fontSize: 22, color: p.ink, marginTop: 4 }}>{money(spend.trueSpendMinor, 'PKR', preferences.grouping)}</Text>
-      <Caption style={{ marginTop: 8 }}>True Spend leaves out confirmed transfers, cash taken out, money lent, and committee money set aside. Refunds reduce it. Nothing changes until you confirm a card.</Caption>
-    </View>
-    {loans.lentMinor ? <View style={{ marginTop: 12 }}><Body>Outstanding money lent {money(Math.max(0, loans.lentMinor - loans.returnedMinor), 'PKR', preferences.grouping)}</Body><Caption>Money returned {money(loans.returnedMinor, 'PKR', preferences.grouping)}</Caption></View> : null}
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 18 }}>
-      {sections.map(name => <Pressable key={name} accessibilityRole="button" onPress={() => setSection(name)} style={{ minHeight: 36, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 18, backgroundColor: section === name ? p.leaf : p.surface }}>
-        <Text style={{ color: section === name ? p.onLeaf : p.ink, fontFamily: fonts.bodyMedium, fontSize: 13 }}>{name}</Text>
-      </Pressable>)}
-    </View>
-    {section === 'Needs review' ? cards.map(card => <Review key={card.id} card={card} transactions={transactions} grouping={preferences.grouping} onAnswer={action => void answer(card, action)} />) : null}
-    {section === 'Needs review' && !cards.length ? <View style={{ marginTop: 18 }}><Body>Nothing needs your eyes.</Body></View> : null}
-    {section !== 'Needs review' ? visible.map(thread => <Connected key={thread.id} thread={thread} transactions={transactions} grouping={preferences.grouping} onUndo={() => void undoThread(thread.id)} />) : null}
-    {section !== 'Needs review' && !visible.length ? <View style={{ marginTop: 18 }}><Caption>Nothing connected here yet.</Caption></View> : null}
+    <ScreenHead title={t.moneyPaths} back caption={t.thisMonth} />
+    <SummaryCard label={t.trueSpend} amount={money(spend.trueSpendMinor, 'PKR', g)} figures={figures} />
+    <View style={{ marginTop: 12 }}><ChipRow>{sections.map(name => <Chip key={name} label={sectionNames[name]} count={name === 'check' ? cards.length : undefined} selected={section === name} onPress={() => setSection(name)} />)}</ChipRow></View>
+    {section === 'check' ? cards.length ? cards.map(card => <Suggested key={card.id} card={card} transactions={transactions} grouping={g} onAnswer={action => void answer(card, action)} />)
+      : <View style={{ marginTop: 12 }}><EmptyState title={t.allClear} /></View> : null}
+    {section !== 'check' ? visible.length ? visible.map(thread => <Confirmed key={thread.id} thread={thread} transactions={transactions} grouping={g} onUndo={() => void undoThread(thread.id)} />)
+      : <View style={{ marginTop: 12 }}><EmptyState title={t.nothingHere} /></View> : null}
+    <Caption style={{ marginTop: 20 }}>Nothing changes until you connect a path. Checked on this phone.</Caption>
   </Screen>;
 }
 
-function matches(section: (typeof sections)[number], kind: ThreadKind): boolean {
-  if (section === 'Connected') return true;
-  if (section === 'Loans') return kind === 'LOAN_OUT' || kind === 'LOAN_REPAYMENT';
-  if (section === 'Committee') return kind === 'COMMITTEE_CONTRIBUTION' || kind === 'COMMITTEE_PAYOUT';
-  if (section === 'Cash') return kind === 'CASH_CONVERSION';
-  if (section === 'Refunds') return kind === 'REFUND';
+function matches(section: Section, kind: ThreadKind): boolean {
+  if (section === 'confirmed') return true;
+  if (section === 'loans') return kind === 'LOAN_OUT' || kind === 'LOAN_REPAYMENT';
+  if (section === 'committee') return kind === 'COMMITTEE_CONTRIBUTION' || kind === 'COMMITTEE_PAYOUT';
+  if (section === 'cash') return kind === 'CASH_CONVERSION';
+  if (section === 'refunds') return kind === 'REFUND';
   return false;
 }
 
-function namesFor(ids: string[], transactions: { id: string; merchant: string; amountMinor: number }[]) {
-  return ids.map(id => transactions.find(item => item.id === id)).filter((item): item is { id: string; merchant: string; amountMinor: number } => Boolean(item));
+function rowsFor(ids: string[], transactions: Transaction[]): Transaction[] {
+  return ids.map(id => transactions.find(item => item.id === id)).filter((item): item is Transaction => Boolean(item));
 }
 
-function Review({ card, transactions, grouping, onAnswer }: { card: ReviewCard; transactions: { id: string; merchant: string; amountMinor: number }[]; grouping: 'international' | 'southAsian'; onAnswer: (action: ReviewCard['actions'][number]) => void }) {
+function Suggested({ card, transactions, grouping, onAnswer }: { card: ReviewCard; transactions: Transaction[]; grouping: GroupingStyle; onAnswer: (action: ReviewCard['actions'][number]) => void }) {
   const p = usePalette();
-  const rows = namesFor(card.transactionIds, transactions);
-  return <View style={{ marginTop: 16, padding: 16, borderRadius: 16, backgroundColor: p.surface }}>
-    <Text style={{ fontFamily: fonts.displayMedium, fontSize: 22, color: p.ink }}>{money(rows[0]?.amountMinor ?? card.impactMinor, 'PKR', grouping)}</Text>
-    <Caption style={{ marginTop: 4 }}>{card.title}</Caption>
-    <Body style={{ marginTop: 8 }}>{card.detail}</Body>
-    <Weave rows={rows} grouping={grouping} />
-    <Caption style={{ marginTop: 10 }}>Why Cashweft noticed this</Caption>
-    {card.evidence.map(line => <Text key={line} style={{ marginTop: 4, color: p.ink, fontFamily: fonts.body }}>✓ {line}</Text>)}
-    <Caption style={{ marginTop: 8 }}>Confidence {confidence(card.score)}</Caption>
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
-      {card.actions.map(action => <Action key={action} compact title={label(card.kind, action)} variant={action === 'reject' ? 'secondary' : 'primary'} onPress={() => onAnswer(action)} />)}
+  const [why, setWhy] = useState(false);
+  const rows = rowsFor(card.transactionIds, transactions);
+  const primary = card.actions.find(action => action !== 'reject');
+  return <View style={{ marginTop: 12, padding: 16, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1.5, borderStyle: 'dashed', borderColor: p.strongLine }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+      <Text style={{ flex: 1, fontFamily: fonts.bodyMedium, fontSize: 15, color: p.ink }}>{pathLabel(card.kind)}</Text>
+      <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1, borderStyle: 'dashed', borderColor: p.muted }}><Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: p.muted }}>Suggested</Text></View>
+    </View>
+    <Flow rows={rows} grouping={grouping} />
+    <Pressable accessibilityRole="button" accessibilityState={{ expanded: why }} onPress={() => setWhy(value => !value)} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: p.marigold }}>Why?</Text>
+      <View style={{ transform: [{ rotate: why ? '90deg' : '0deg' }] }}><Icon name="chevron" color={p.marigold} size={14} /></View>
+    </Pressable>
+    {why ? <View style={{ gap: 4, marginBottom: 8 }}>
+      {card.evidence.map(line => <View key={line} style={{ flexDirection: 'row', gap: 6 }}><Icon name="check" color={p.muted} size={14} /><Caption style={{ flex: 1, color: p.ink }}>{line}</Caption></View>)}
+      <Caption>{confidence(card.score)}</Caption>
+    </View> : null}
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {card.actions.filter(action => action !== primary).map(action => <View key={action} style={{ flexGrow: 1 }}><Action compact title={label(card.kind, action)} variant="secondary" onPress={() => onAnswer(action)} /></View>)}
+      {primary ? <View style={{ flexGrow: 1 }}><Action compact title={label(card.kind, primary)} onPress={() => onAnswer(primary)} /></View> : null}
     </View>
   </View>;
 }
 
-function Connected({ thread, transactions, grouping, onUndo }: { thread: MoneyThread; transactions: { id: string; merchant: string; amountMinor: number }[]; grouping: 'international' | 'southAsian'; onUndo: () => void }) {
+function Confirmed({ thread, transactions, grouping, onUndo }: { thread: MoneyThread; transactions: Transaction[]; grouping: GroupingStyle; onUndo: () => void }) {
   const p = usePalette();
-  const rows = namesFor(thread.transactionIds, transactions);
-  return <View style={{ marginTop: 16, padding: 16, borderRadius: 16, backgroundColor: p.surface }}>
-    <Weave rows={rows} grouping={grouping} />
-    <Caption style={{ marginTop: 8 }}>{thread.partial ? 'Part of a loan was returned.' : 'Connected by you.'}</Caption>
-    <View style={{ marginTop: 12 }}><Action compact title="Undo" variant="ghost" onPress={onUndo} /></View>
+  const rows = rowsFor(thread.transactionIds, transactions);
+  return <View style={{ marginTop: 12, padding: 16, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1.5, borderColor: p.marigold }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <Icon name="check" color={p.marigold} size={18} />
+      <Text style={{ flex: 1, fontFamily: fonts.bodyMedium, fontSize: 15, color: p.ink }}>{pathLabel(thread.kind)}</Text>
+      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: p.marigold }}>{thread.partial ? 'Partly returned' : 'Confirmed'}</Text>
+    </View>
+    <Flow rows={rows} grouping={grouping} />
+    <View style={{ alignSelf: 'flex-start' }}><Action compact title="Undo" variant="ghost" onPress={onUndo} /></View>
   </View>;
 }
 
-function Weave({ rows, grouping }: { rows: { merchant: string; amountMinor: number }[]; grouping: 'international' | 'southAsian' }) {
+function Flow({ rows, grouping }: { rows: Transaction[]; grouping: GroupingStyle }) {
   const p = usePalette();
-  return <View style={{ marginTop: 12 }}>
-    {rows.map((row, index) => <View key={`${row.merchant}-${index}`}>
-      <Text style={{ fontFamily: fonts.bodyMedium, color: p.ink }}>{row.merchant}</Text>
-      {index < rows.length - 1 ? <View style={{ borderLeftWidth: 1, borderColor: p.leaf, marginLeft: 7, paddingLeft: 12, paddingVertical: 6 }}>
-        <Text style={{ fontFamily: fonts.mono, color: p.muted }}>{money(row.amountMinor, 'PKR', grouping)}</Text>
+  const spoken = rows.map(row => `${row.merchant} ${row.direction === 'debit' ? 'out' : 'in'} ${money(row.amountMinor, row.currency, grouping)}`).join(', then ');
+  return <View accessible accessibilityLabel={spoken} style={{ marginVertical: 12 }}>
+    {rows.map((row, index) => <View key={row.id}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: p.marigold, backgroundColor: index === 0 ? p.marigold : 'transparent' }} />
+        <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.bodyMedium, fontSize: 15, color: p.ink }}>{row.merchant}{row.accountLast4 ? ` ··${row.accountLast4}` : ''}</Text>
+        <Text style={{ fontFamily: fonts.mono, fontSize: 14, color: row.direction === 'debit' ? p.ink : p.credit, writingDirection: 'ltr' }}>{row.direction === 'debit' ? '−' : '+'}{money(row.amountMinor, row.currency, grouping)}</Text>
+      </View>
+      {index < rows.length - 1 ? <View style={{ marginStart: 5, borderStartWidth: 2, borderStartColor: p.marigold, height: 22, justifyContent: 'center', paddingStart: 14 }}>
+        <Icon name="arrowDown" color={p.muted} size={14} />
       </View> : null}
     </View>)}
   </View>;
@@ -115,6 +133,6 @@ function label(kind: ThreadKind, action: ReviewCard['actions'][number]): string 
   if (action === 'partial') return 'Partly';
   if (action === 'reject' && kind === 'DUPLICATE') return 'Both are real';
   if (action === 'reject') return 'Not related';
-  if (kind === 'LOAN_REPAYMENT') return 'Yes, repayment';
-  return 'Connect them';
+  if (kind === 'LOAN_REPAYMENT') return 'Yes, returned';
+  return 'Connect';
 }

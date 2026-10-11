@@ -1,19 +1,25 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { CategoryDot, EmptyState, Screen, ScreenHead, SectionTitle } from '@/ui/Kit';
+import { Text, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { Caption, Chip, ChipRow, EmptyState, ProgressBar, Screen, ScreenHead, Segmented, SectionTitle } from '@/ui/Kit';
+import { CategoryIcon } from '@/ui/CategoryIcon';
+import { BudgetsPanel } from '@/ui/BudgetsPanel';
 import { money } from '@/lib/format';
 import { colorForCategory, fonts, usePalette } from '@/ui/theme';
 import { useLedger } from '@/state/LedgerProvider';
+import { CASH_ACCOUNT_ID } from '@/lib/model';
 import { cashEstimate, countsAsExpense, netSpend } from '@/finance/accounting/ledger';
+import { withPaths } from '@/finance/accounting/summary';
 import { findRecurring } from '@/finance/intelligence/recurring';
 import { unusualSpend } from '@/finance/intelligence/anomalies';
 import { periodChange } from '@/finance/intelligence/forecast';
+import { copy } from '@/i18n/copy';
 
-type Period = 'Week' | 'Month' | 'Year';
+type Period = 'week' | 'month' | 'year';
 function periodStart(period: Period, shift = 0): number {
   const date = new Date();
-  if (period === 'Week') { const day = (date.getDay() + 6) % 7; date.setDate(date.getDate() - day - shift * 7); }
-  else if (period === 'Month') date.setMonth(date.getMonth() - shift, 1);
+  if (period === 'week') { const day = (date.getDay() + 6) % 7; date.setDate(date.getDate() - day - shift * 7); }
+  else if (period === 'month') date.setMonth(date.getMonth() - shift, 1);
   else date.setFullYear(date.getFullYear() - shift, 0, 1);
   date.setHours(0, 0, 0, 0);
   return date.getTime();
@@ -21,38 +27,90 @@ function periodStart(period: Period, shift = 0): number {
 
 export default function Insights() {
   const p = usePalette();
-  const { transactions, preferences, adjustments } = useLedger();
-  const [period, setPeriod] = useState<Period>('Month');
+  const { transactions, threads, preferences, adjustments } = useLedger();
+  const t = copy(preferences.language);
+  const g = preferences.grouping;
+  const params = useLocalSearchParams<{ view?: string; at?: string }>();
+  const [view, setView] = useState<'spending' | 'budgets'>(params.view === 'budgets' ? 'budgets' : 'spending');
+  const [request, setRequest] = useState(params.at);
+  if (params.at !== request) {
+    setRequest(params.at);
+    if (params.view === 'budgets') setView('budgets');
+  }
+  const [period, setPeriod] = useState<Period>('month');
   const data = useMemo(() => {
-    const current = transactions.filter(item => item.occurredAt >= periodStart(period) && item.currency === 'PKR');
-    const previous = transactions.filter(item => item.occurredAt >= periodStart(period, 1) && item.occurredAt < periodStart(period) && item.currency === 'PKR');
+    const pkr = withPaths(transactions.filter(item => item.currency === 'PKR'), threads);
+    const current = pkr.filter(item => item.occurredAt >= periodStart(period));
+    const previous = pkr.filter(item => item.occurredAt >= periodStart(period, 1) && item.occurredAt < periodStart(period));
     const totals = new Map<string, number>();
     for (const item of current.filter(countsAsExpense)) totals.set(item.category, (totals.get(item.category) ?? 0) + item.amountMinor);
-    for (const item of current.filter(item => item.transactionType === 'refund')) totals.set(item.category, (totals.get(item.category) ?? 0) - item.amountMinor);
+    for (const item of current.filter(item => item.transactionType === 'refund' && item.status !== 'ignored')) totals.set(item.category, (totals.get(item.category) ?? 0) - item.amountMinor);
     const categories = [...totals.entries()].map(([category, amount]) => ({ category, amount })).filter(row => row.amount > 0).sort((a, b) => b.amount - a.amount);
     const providers = new Map<string, number>();
-    for (const item of current.filter(countsAsExpense)) providers.set(item.providerId ?? item.rail ?? 'Unspecified', (providers.get(item.providerId ?? item.rail ?? 'Unspecified') ?? 0) + item.amountMinor);
-    return { categories, providers: [...providers.entries()].sort((a, b) => b[1] - a[1]), change: periodChange(netSpend(current), netSpend(previous)), recurring: findRecurring(transactions), unusual: unusualSpend(transactions) };
-  }, [transactions, period]);
+    for (const item of current.filter(countsAsExpense)) { const key = item.providerId ?? item.rail ?? 'Other'; providers.set(key, (providers.get(key) ?? 0) + item.amountMinor); }
+    const digital = current.filter(item => countsAsExpense(item) && item.accountId !== CASH_ACCOUNT_ID).reduce((sum, item) => sum + item.amountMinor, 0);
+    const cash = current.filter(item => countsAsExpense(item) && item.accountId === CASH_ACCOUNT_ID).reduce((sum, item) => sum + item.amountMinor, 0);
+    return { categories, digital, cash, providers: [...providers.entries()].sort((a, b) => b[1] - a[1]), change: periodChange(netSpend(current), netSpend(previous)), recurring: findRecurring(transactions), unusual: unusualSpend(transactions) };
+  }, [transactions, threads, period]);
   const total = data.categories.reduce((sum, row) => sum + row.amount, 0);
-  const digital = transactions.filter(item => countsAsExpense(item) && item.accountId !== 'cash-wallet' && item.currency === 'PKR').reduce((sum, item) => sum + item.amountMinor, 0);
-  const cashSpent = transactions.filter(item => countsAsExpense(item) && item.accountId === 'cash-wallet').reduce((sum, item) => sum + item.amountMinor, 0);
-  return <Screen>
-    <ScreenHead title="Where it went" />
-    <View style={{ flexDirection: 'row', gap: 7, marginTop: 7 }}>
-      {(['Week', 'Month', 'Year'] as const).map(value => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: period === value }} onPress={() => setPeriod(value)} style={{ paddingHorizontal: 20, minHeight: 44, justifyContent: 'center', borderRadius: 9, backgroundColor: period === value ? p.leaf : p.surface }}><Text style={{ fontFamily: fonts.bodyMedium, color: period === value ? p.onLeaf : p.muted }}>{value}</Text></Pressable>)}
-    </View>
-    <View style={{ marginTop: 28, marginBottom: 18 }}><Text style={{ fontFamily: fonts.body, color: p.muted, fontSize: 14 }}>Spending · {period.toLowerCase()}</Text><Text style={{ fontFamily: fonts.mono, fontSize: 34, color: p.ink, marginTop: 5, writingDirection: 'ltr' }}>{money(total, 'PKR', preferences.grouping)}</Text><Text style={{ fontFamily: fonts.body, color: p.muted, marginTop: 8 }}>{data.change.text}</Text></View>
-    {data.categories.length ? <>
-      <View accessibilityLabel="Spending by category" style={{ height: 22, flexDirection: 'row', overflow: 'hidden', borderRadius: 7, marginBottom: 22 }}>
-        {data.categories.map(row => <View key={row.category} style={{ width: `${row.amount / total * 100}%`, backgroundColor: colorForCategory(row.category) }} />)}
+  const top = data.categories[0]?.amount ?? 1;
+  const both = Math.max(1, data.digital + data.cash);
+  return <Screen tab>
+    <ScreenHead title={t.insights} />
+    <Segmented value={view} onChange={setView} options={[{ value: 'spending', label: t.spending }, { value: 'budgets', label: t.budgets }]} />
+    {view === 'budgets' ? <BudgetsPanel /> : <>
+      <View style={{ marginTop: 8 }}><ChipRow>{(['week', 'month', 'year'] as const).map(value => <Chip key={value} label={t[value]} selected={period === value} onPress={() => setPeriod(value)} />)}</ChipRow></View>
+      <View style={{ marginTop: 12, marginBottom: 16 }}>
+        <Text adjustsFontSizeToFit numberOfLines={1} style={{ fontFamily: fonts.mono, fontSize: 36, lineHeight: 46, color: p.ink, writingDirection: 'ltr' }}>{money(total, 'PKR', g)}</Text>
+        {data.change.comparable ? <Caption style={{ marginTop: 2 }}>{data.change.text}</Caption> : null}
       </View>
-      <SectionTitle>By category</SectionTitle>
-      {data.categories.map(row => <View key={row.category} style={{ paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: p.line }}><CategoryDot category={row.category} size={11} /><Text style={{ flex: 1, fontFamily: fonts.bodyMedium, color: p.ink }}>{row.category}</Text><Text style={{ fontFamily: fonts.mono, color: p.ink, writingDirection: 'ltr' }}>{money(row.amount, 'PKR', preferences.grouping)}</Text><Text style={{ width: 40, textAlign: 'right', color: p.muted }}>{Math.round(row.amount / total * 100)}%</Text></View>)}
-    </> : <EmptyState title="Your picture will grow" detail="Expenses show here. Transfers and cash withdrawals stay out of this total." />}
-    <View style={{ marginTop: 28 }}><SectionTitle>Cash and digital</SectionTitle><Text style={{ marginTop: 8, color: p.muted, fontFamily: fonts.body }}>Digital expenses {money(digital, 'PKR', preferences.grouping)}. Cash expenses {money(cashSpent, 'PKR', preferences.grouping)}. Estimated cash left {money(cashEstimate(transactions, adjustments), 'PKR', preferences.grouping)}.</Text></View>
-    {data.recurring.length ? <View style={{ marginTop: 24 }}><SectionTitle>Recurring</SectionTitle>{data.recurring.slice(0, 4).map(item => <Text key={item.merchantKey} style={{ marginTop: 8, color: p.ink, fontFamily: fonts.body }}>{item.merchant} · {item.reason}</Text>)}</View> : null}
-    {data.unusual.length ? <View style={{ marginTop: 24 }}><SectionTitle>Unusual for you</SectionTitle>{data.unusual.slice(0, 3).map(item => <Text key={item.merchant} style={{ marginTop: 8, color: p.ink, fontFamily: fonts.body }}>{item.merchant}: {item.reason}</Text>)}</View> : null}
-    {data.providers.length ? <View style={{ marginTop: 24 }}><SectionTitle>By source</SectionTitle>{data.providers.slice(0, 6).map(([name, amount]) => <Text key={name} style={{ marginTop: 8, color: p.ink, fontFamily: fonts.body }}>{name} · {money(amount, 'PKR', preferences.grouping)}</Text>)}</View> : null}
+      {data.categories.length ? <>
+        <View accessibilityLabel={t.byCategory} style={{ height: 16, flexDirection: 'row', overflow: 'hidden', borderRadius: 8, marginBottom: 20, gap: 2 }}>
+          {data.categories.map(row => <View key={row.category} style={{ width: `${row.amount / total * 100}%`, backgroundColor: colorForCategory(row.category) }} />)}
+        </View>
+        <SectionTitle>{t.byCategory}</SectionTitle>
+        {data.categories.map(row => <View key={row.category} accessible accessibilityLabel={`${row.category}, ${money(row.amount, 'PKR', g)}, ${Math.round(row.amount / total * 100)}%`} style={{ paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <CategoryIcon category={row.category} />
+          <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+              <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.bodyMedium, fontSize: 15, color: p.ink }}>{row.category}</Text>
+              <Text style={{ fontFamily: fonts.mono, fontSize: 14, color: p.ink, writingDirection: 'ltr' }}>{money(row.amount, 'PKR', g)}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ flex: 1 }}><ProgressBar ratio={row.amount / top} color={colorForCategory(row.category)} track={p.sunk} height={4} /></View>
+              <Caption style={{ width: 36, textAlign: 'right' }}>{Math.round(row.amount / total * 100)}%</Caption>
+            </View>
+          </View>
+        </View>)}
+      </> : <EmptyState title={t.insightsEmpty} detail={t.insightsEmptyDetail} />}
+      {data.digital + data.cash > 0 ? <View style={{ marginTop: 24, gap: 10 }}>
+        <SectionTitle>{t.cashAndDigital}</SectionTitle>
+        <Split label={t.digital} amount={money(data.digital, 'PKR', g)} ratio={data.digital / both} color={p.marigold} />
+        <Split label={t.cashInHand} amount={money(data.cash, 'PKR', g)} ratio={data.cash / both} color={p.review} />
+        {preferences.cashBridge ? <Caption>{t.cash} {money(cashEstimate(transactions.filter(item => item.currency === 'PKR'), adjustments), 'PKR', g)} · {t.cashNote}</Caption> : null}
+      </View> : null}
+      {data.recurring.length ? <MiniList title={t.repeats} rows={data.recurring.slice(0, 4).map(item => ({ key: item.merchantKey, text: item.merchant, detail: item.reason }))} /> : null}
+      {data.unusual.length ? <MiniList title={t.unusual} rows={data.unusual.slice(0, 4).map(item => ({ key: item.merchant, text: item.merchant, detail: item.reason }))} /> : null}
+      {data.providers.length > 1 ? <MiniList title={t.bySource} rows={data.providers.slice(0, 4).map(([name, amount]) => ({ key: name, text: name, detail: money(amount, 'PKR', g) }))} /> : null}
+    </>}
   </Screen>;
+}
+
+function Split({ label, amount, ratio, color }: { label: string; amount: string; ratio: number; color: string }) {
+  const p = usePalette();
+  return <View accessible accessibilityLabel={`${label}, ${amount}`} style={{ gap: 6 }}>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ fontFamily: fonts.bodyMedium, fontSize: 15, color: p.ink }}>{label}</Text><Text style={{ fontFamily: fonts.mono, fontSize: 14, color: p.ink, writingDirection: 'ltr' }}>{amount}</Text></View>
+    <ProgressBar ratio={ratio} color={color} track={p.sunk} />
+  </View>;
+}
+
+function MiniList({ title, rows }: { title: string; rows: { key: string; text: string; detail: string }[] }) {
+  const p = usePalette();
+  return <View style={{ marginTop: 24 }}>
+    <SectionTitle>{title}</SectionTitle>
+    {rows.map(row => <View key={row.key} style={{ paddingVertical: 8 }}>
+      <Text numberOfLines={1} style={{ fontFamily: fonts.bodyMedium, fontSize: 15, color: p.ink }}>{row.text}</Text>
+      <Caption numberOfLines={2}>{row.detail}</Caption>
+    </View>)}
+  </View>;
 }
